@@ -13,6 +13,9 @@ rclone.conf
 .Spotlight-V100
 .Trashes
 
+# Local test harness (scratch restic repos + fixtures, never committed)
+.test-harness/
+
 # Editor
 .vscode/
 .idea/
