@@ -3,74 +3,116 @@
 # backup.sh — Restic backup runner
 # =============================================================================
 # Reads all config from backup.conf. Do not hardcode anything here.
-# Run manually:  bash backup.sh
-# Run dry-run:   bash backup.sh --dry-run
+#
+# Usage:
+#   bash backup.sh                                  — back up all configured SOURCES
+#   bash backup.sh --dry-run                        — dry run, no changes
+#   bash backup.sh --include ~/Documents/taxes      — back up only this path
+#   bash backup.sh --pattern 'Documents/*/invoices' — back up paths matching this pattern
+#   bash backup.sh --glob '*.pdf'                   — back up only files matching this filename glob
+#   bash backup.sh --exclude '*.iso'                — add an extra exclude pattern for this run
+#
+# --include/--pattern/--glob are repeatable and may be combined; their
+# resolved paths are unioned to REPLACE this run's source list (SOURCES from
+# backup.conf is not used when any of these are given). --exclude is
+# repeatable and adds to backup.conf's EXCLUDES for this run only.
 # =============================================================================
 
 set -euo pipefail
 
-# ── Resolve paths ─────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_FILE="$SCRIPT_DIR/backup.conf"
 
-if [[ ! -f "$CONFIG_FILE" ]]; then
-    echo "ERROR: backup.conf not found at $CONFIG_FILE" >&2
-    exit 1
-fi
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+# shellcheck source=lib/logging.sh
+source "$SCRIPT_DIR/lib/logging.sh"
 
-# shellcheck source=backup.conf
-source "$CONFIG_FILE"
+load_config "$SCRIPT_DIR"
 
-# ── Dry-run flag ──────────────────────────────────────────────────────────────
+# ── Parse arguments ───────────────────────────────────────────────────────────
 DRY_RUN=false
-if [[ "${1:-}" == "--dry-run" ]]; then
-    DRY_RUN=true
-fi
+INCLUDE_PATHS=()
+PATTERN_ARGS=()
+GLOB_ARGS=()
+EXTRA_EXCLUDES=()
 
-# ── Logging ───────────────────────────────────────────────────────────────────
-mkdir -p "$LOG_DIR"
-
-rotate_log() {
-    if [[ -f "$LOG_FILE" ]]; then
-        local size
-        size=$(stat -f%z "$LOG_FILE" 2>/dev/null || echo 0)
-        if (( size > LOG_MAX_BYTES )); then
-            mv "$LOG_FILE" "${LOG_FILE}.$(date +%Y%m%d%H%M%S).bak"
-        fi
-    fi
-}
-
-log() {
-    local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
-    echo "$msg" | tee -a "$LOG_FILE"
-}
-
-rotate_log
-
-# ── Dependency checks ─────────────────────────────────────────────────────────
-for cmd in restic rclone security; do
-    if ! command -v "$cmd" &>/dev/null; then
-        log "ERROR: '$cmd' not found in PATH. Is Homebrew on your PATH?"
-        exit 1
-    fi
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --dry-run) DRY_RUN=true; shift ;;
+        --include) INCLUDE_PATHS+=("$2"); shift 2 ;;
+        --pattern) PATTERN_ARGS+=("$2"); shift 2 ;;
+        --glob)    GLOB_ARGS+=("$2"); shift 2 ;;
+        --exclude) EXTRA_EXCLUDES+=("$2"); shift 2 ;;
+        *) echo "Unknown argument: $1" >&2; exit 1 ;;
+    esac
 done
 
-# ── Retrieve password from Keychain ──────────────────────────────────────────
-RESTIC_PASSWORD=$(security find-generic-password \
-    -a "$KEYCHAIN_ACCOUNT" \
-    -s "$KEYCHAIN_SERVICE" \
-    -w 2>/dev/null) || {
-    log "ERROR: Could not retrieve password from Keychain."
-    log "       Run install.sh to set it up, or check account/service names in backup.conf."
-    exit 1
-}
-export RESTIC_PASSWORD
+init_logging backup
+emit_event backup "" info run_start
+
+check_dependencies restic rclone security jq
+
+get_restic_password
+
+# ── Resolve target paths (--include/--pattern/--glob) ────────────────────────
+TARGET_PATHS=()
+
+if [[ ${#INCLUDE_PATHS[@]} -gt 0 ]]; then
+    for path in "${INCLUDE_PATHS[@]}"; do
+        if [[ ! -e "$path" ]]; then
+            log_human "ERROR: --include path does not exist: $path"
+            exit 1
+        fi
+        TARGET_PATHS+=("$path")
+    done
+fi
+
+if [[ ${#PATTERN_ARGS[@]} -gt 0 ]]; then
+    for pattern in "${PATTERN_ARGS[@]}"; do
+        MATCHES=()
+        for source in "${SOURCES[@]}"; do
+            while IFS= read -r match; do
+                MATCHES+=("$match")
+            done < <(find "$source" -path "*${pattern}*" 2>/dev/null)
+        done
+        if [[ ${#MATCHES[@]} -eq 0 ]]; then
+            log_human "ERROR: --pattern '$pattern' matched no files under configured SOURCES."
+            exit 1
+        fi
+        TARGET_PATHS+=("${MATCHES[@]}")
+    done
+fi
+
+if [[ ${#GLOB_ARGS[@]} -gt 0 ]]; then
+    for glob in "${GLOB_ARGS[@]}"; do
+        MATCHES=()
+        for source in "${SOURCES[@]}"; do
+            while IFS= read -r match; do
+                MATCHES+=("$match")
+            done < <(find "$source" -name "$glob" 2>/dev/null)
+        done
+        if [[ ${#MATCHES[@]} -eq 0 ]]; then
+            log_human "ERROR: --glob '$glob' matched no files under configured SOURCES."
+            exit 1
+        fi
+        TARGET_PATHS+=("${MATCHES[@]}")
+    done
+fi
+
+if [[ ${#TARGET_PATHS[@]} -eq 0 ]]; then
+    TARGET_PATHS=("${SOURCES[@]}")
+fi
 
 # ── Build exclude flags ───────────────────────────────────────────────────────
 EXCLUDE_FLAGS=()
 for pattern in "${EXCLUDES[@]}"; do
     EXCLUDE_FLAGS+=("--exclude=${pattern}")
 done
+if [[ ${#EXTRA_EXCLUDES[@]} -gt 0 ]]; then
+    for pattern in "${EXTRA_EXCLUDES[@]}"; do
+        EXCLUDE_FLAGS+=("--exclude=${pattern}")
+    done
+fi
 
 # ── Build retention flags ─────────────────────────────────────────────────────
 RETENTION_FLAGS=(
@@ -80,60 +122,68 @@ RETENTION_FLAGS=(
     --keep-yearly  "$RETENTION_KEEP_YEARLY"
 )
 
-# ── Dry-run notice ────────────────────────────────────────────────────────────
 if $DRY_RUN; then
-    log "=== DRY RUN MODE — no changes will be made ==="
+    log_human "=== DRY RUN MODE — no changes will be made ==="
 fi
 
-# ── Main backup loop ──────────────────────────────────────────────────────────
-log "=========================================="
-log "Restic backup started"
-log "Sources: ${SOURCES[*]}"
-log "Repos:   ${REPOS[*]}"
-log "=========================================="
+log_human "=========================================="
+log_human "Restic backup started"
+log_human "Targets: ${TARGET_PATHS[*]}"
+log_human "Repos:   ${REPOS[*]}"
+log_human "=========================================="
 
 OVERALL_SUCCESS=true
 
 for REPO in "${REPOS[@]}"; do
-    log ""
-    log "--- Repository: $REPO ---"
+    log_human ""
+    log_human "--- Repository: $REPO ---"
 
     BACKUP_CMD=(
         restic -r "$REPO" backup
-        "${SOURCES[@]}"
+        "${TARGET_PATHS[@]}"
         "${EXCLUDE_FLAGS[@]}"
-        --verbose
+        --json --verbose=2
     )
 
     if $DRY_RUN; then
         BACKUP_CMD+=(--dry-run)
     fi
 
-    if "${BACKUP_CMD[@]}" >> "$LOG_FILE" 2>&1; then
-        log "Backup to $REPO: SUCCESS"
+    if "${BACKUP_CMD[@]}" | process_restic_json_stream backup "$REPO"; then
+        log_human "Backup to $REPO: SUCCESS"
 
         if ! $DRY_RUN; then
-            log "Running forget/prune on $REPO..."
-            if restic -r "$REPO" forget "${RETENTION_FLAGS[@]}" --prune >> "$LOG_FILE" 2>&1; then
-                log "Prune on $REPO: SUCCESS"
-            else
-                log "WARNING: Prune on $REPO failed. Backup data is safe; run manually to clean up."
-            fi
+            log_human "Running forget/prune on $REPO..."
+            FORGET_JSON=$(restic -r "$REPO" forget "${RETENTION_FLAGS[@]}" --prune --json 2>&1) && {
+                REMOVED_COUNT=$(jq '[.[].remove // [] | length] | add // 0' <<<"$FORGET_JSON" 2>/dev/null || echo 0)
+                emit_event backup "$REPO" info prune --num removed_count "$REMOVED_COUNT"
+                log_human "Prune on $REPO: SUCCESS (removed $REMOVED_COUNT snapshot(s))"
+            } || {
+                emit_event backup "$REPO" warn prune --str message "prune failed"
+                log_human "WARNING: Prune on $REPO failed. Backup data is safe; run manually to clean up."
+            }
         fi
     else
-        log "ERROR: Backup to $REPO FAILED."
+        emit_event backup "$REPO" error error --str message "backup command failed"
+        log_human "ERROR: Backup to $REPO FAILED."
         OVERALL_SUCCESS=false
     fi
 done
 
-log ""
-log "=========================================="
+log_human ""
+log_human "=========================================="
 if $OVERALL_SUCCESS; then
-    log "All backups completed successfully."
+    log_human "All backups completed successfully."
 else
-    log "One or more backups FAILED. Check log above."
+    log_human "One or more backups FAILED. Check log above."
 fi
-log "Finished at $(date)"
-log "=========================================="
+log_human "Finished at $(date)"
+log_human "=========================================="
+
+if $OVERALL_SUCCESS; then
+    emit_event backup "" info run_end --str status "success"
+else
+    emit_event backup "" error run_end --str status "failure"
+fi
 
 $OVERALL_SUCCESS  # exit 0 if all succeeded, 1 otherwise
