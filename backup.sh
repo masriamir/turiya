@@ -54,6 +54,12 @@ check_dependencies restic rclone security jq
 
 get_restic_password
 
+if [[ ${#REPOS[@]} -eq 0 ]]; then
+    log_human "ERROR: REPOS is empty in backup.conf. Configure at least one repo."
+    emit_event backup "" error run_end --str status "failure"
+    exit 1
+fi
+
 # ── Resolve target paths (--include/--pattern/--glob) ────────────────────────
 TARGET_PATHS=()
 
@@ -61,6 +67,7 @@ if [[ ${#INCLUDE_PATHS[@]} -gt 0 ]]; then
     for path in "${INCLUDE_PATHS[@]}"; do
         if [[ ! -e "$path" ]]; then
             log_human "ERROR: --include path does not exist: $path"
+            emit_event backup "" error run_end --str status "failure"
             exit 1
         fi
         TARGET_PATHS+=("$path")
@@ -77,6 +84,7 @@ if [[ ${#PATTERN_ARGS[@]} -gt 0 ]]; then
         done
         if [[ ${#MATCHES[@]} -eq 0 ]]; then
             log_human "ERROR: --pattern '$pattern' matched no files under configured SOURCES."
+            emit_event backup "" error run_end --str status "failure"
             exit 1
         fi
         TARGET_PATHS+=("${MATCHES[@]}")
@@ -93,6 +101,7 @@ if [[ ${#GLOB_ARGS[@]} -gt 0 ]]; then
         done
         if [[ ${#MATCHES[@]} -eq 0 ]]; then
             log_human "ERROR: --glob '$glob' matched no files under configured SOURCES."
+            emit_event backup "" error run_end --str status "failure"
             exit 1
         fi
         TARGET_PATHS+=("${MATCHES[@]}")
@@ -105,9 +114,11 @@ fi
 
 # ── Build exclude flags ───────────────────────────────────────────────────────
 EXCLUDE_FLAGS=()
-for pattern in "${EXCLUDES[@]}"; do
-    EXCLUDE_FLAGS+=("--exclude=${pattern}")
-done
+if [[ ${#EXCLUDES[@]} -gt 0 ]]; then
+    for pattern in "${EXCLUDES[@]}"; do
+        EXCLUDE_FLAGS+=("--exclude=${pattern}")
+    done
+fi
 if [[ ${#EXTRA_EXCLUDES[@]} -gt 0 ]]; then
     for pattern in "${EXTRA_EXCLUDES[@]}"; do
         EXCLUDE_FLAGS+=("--exclude=${pattern}")
@@ -141,15 +152,17 @@ for REPO in "${REPOS[@]}"; do
     BACKUP_CMD=(
         restic -r "$REPO" backup
         "${TARGET_PATHS[@]}"
-        "${EXCLUDE_FLAGS[@]}"
-        --json --verbose=2
     )
+    if [[ ${#EXCLUDE_FLAGS[@]} -gt 0 ]]; then
+        BACKUP_CMD+=("${EXCLUDE_FLAGS[@]}")
+    fi
+    BACKUP_CMD+=(--json --verbose=2)
 
     if $DRY_RUN; then
         BACKUP_CMD+=(--dry-run)
     fi
 
-    if "${BACKUP_CMD[@]}" | process_restic_json_stream backup "$REPO"; then
+    if "${BACKUP_CMD[@]}" 2>&1 | process_restic_json_stream backup "$REPO"; then
         log_human "Backup to $REPO: SUCCESS"
 
         if ! $DRY_RUN; then

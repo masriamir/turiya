@@ -95,7 +95,7 @@ process_restic_json_stream() {
                 emit_summary "$op" "$repo" "$raw"
                 log_human "[$op] $repo: summary $(jq -r 'to_entries | map("\(.key)=\(.value)") | join(" ")' <<<"$raw")"
                 ;;
-            error)
+            error|exit_error)
                 local err_msg
                 err_msg=$(jq -r '.message // (.error.message // "unknown error")' <<<"$line")
                 emit_event "$op" "$repo" error error --str message "$err_msg"
