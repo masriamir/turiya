@@ -1,0 +1,20 @@
+# Generated plist (rendered from template by install.sh, not tracked)
+*.plist
+
+# Logs
+*.log
+*.log.bak
+
+# rclone config (contains OAuth tokens — never commit this)
+rclone.conf
+
+# macOS
+.DS_Store
+.Spotlight-V100
+.Trashes
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
