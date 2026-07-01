@@ -129,7 +129,12 @@ for REPO in "${REPOS[@]}"; do
             fi
             [[ "$MODE" == "--latest" ]] && SNAP_ARGS+=(--latest 1)
 
-            SNAPSHOTS_JSON=$(restic -r "$REPO" "${SNAP_ARGS[@]}")
+            if ! SNAPSHOTS_JSON=$(restic -r "$REPO" "${SNAP_ARGS[@]}" 2>&1); then
+                ERR_MSG=$(jq -r '.message // "unknown error"' <<<"$SNAPSHOTS_JSON" 2>/dev/null || echo "$SNAPSHOTS_JSON")
+                emit_event status "$REPO" error error --str message "$ERR_MSG"
+                echo "ERROR: status query on $REPO failed: $ERR_MSG" >&2
+                continue
+            fi
             COUNT=$(jq 'length' <<<"$SNAPSHOTS_JSON")
 
             idx=0

@@ -72,11 +72,14 @@ else
     REPOS_TO_QUERY=("${REPOS[@]}")
 fi
 
+OVERALL_SUCCESS=true
+
 for REPO in "${REPOS_TO_QUERY[@]}"; do
     if [[ -n "$SINCE$UNTIL" ]]; then
         if ! SNAPSHOTS_JSON=$(restic -r "$REPO" snapshots --json 2>&1); then
             ERR_MSG=$(jq -r '.message // "unknown error"' <<<"$SNAPSHOTS_JSON" 2>/dev/null || echo "$SNAPSHOTS_JSON")
             emit_event query "$REPO" error error --str message "$ERR_MSG"
+            OVERALL_SUCCESS=false
             echo "ERROR: query on $REPO failed: $ERR_MSG" >&2
             continue
         fi
@@ -99,6 +102,7 @@ for REPO in "${REPOS_TO_QUERY[@]}"; do
         if ! RESULT=$(restic -r "$REPO" find --json "$FIND_TARGET" 2>&1); then
             ERR_MSG=$(jq -r '.message // "unknown error"' <<<"$RESULT" 2>/dev/null || echo "$RESULT")
             emit_event query "$REPO" error error --str message "$ERR_MSG"
+            OVERALL_SUCCESS=false
             echo "ERROR: query on $REPO failed: $ERR_MSG" >&2
             RESULT="[]"
         fi
@@ -118,6 +122,7 @@ for REPO in "${REPOS_TO_QUERY[@]}"; do
         if ! RESULT=$(restic -r "$REPO" find --json "$VERSIONS_TARGET" --reverse 2>&1); then
             ERR_MSG=$(jq -r '.message // "unknown error"' <<<"$RESULT" 2>/dev/null || echo "$RESULT")
             emit_event query "$REPO" error error --str message "$ERR_MSG"
+            OVERALL_SUCCESS=false
             echo "ERROR: query on $REPO failed: $ERR_MSG" >&2
             RESULT="[]"
         fi
@@ -135,4 +140,8 @@ for REPO in "${REPOS_TO_QUERY[@]}"; do
     fi
 done
 
-emit_event query "" info run_end --str status "success"
+if $OVERALL_SUCCESS; then
+    emit_event query "" info run_end --str status "success"
+else
+    emit_event query "" error run_end --str status "failure"
+fi

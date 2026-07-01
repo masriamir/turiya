@@ -57,7 +57,11 @@ check_dependencies restic rclone security jq
 
 get_restic_password
 
-SELECTED_REPO=$(resolve_repo "$REPO_FILTER")
+if ! SELECTED_REPO=$(resolve_repo "$REPO_FILTER" 2>&1); then
+    emit_event restore "" error run_end --str status "failure"
+    echo "$SELECTED_REPO" >&2
+    exit 1
+fi
 
 echo ""
 echo "Restore settings:"
