@@ -24,12 +24,12 @@ error()   { echo "[install] ✗ $*" >&2; exit 1; }
 
 # ── 1. Dependency check ───────────────────────────────────────────────────────
 info "Checking dependencies..."
-for cmd in restic rclone; do
+for cmd in restic rclone jq; do
     if ! command -v "$cmd" &>/dev/null; then
-        error "'$cmd' not found. Run: brew install restic rclone"
+        error "'$cmd' not found. Run: brew install restic rclone jq"
     fi
 done
-success "restic and rclone found."
+success "restic, rclone, and jq found."
 
 # ── 2. Keychain password ──────────────────────────────────────────────────────
 info "Checking Keychain for restic password..."
