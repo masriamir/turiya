@@ -51,6 +51,12 @@ get_restic_password() {
 resolve_repo() {
     local filter="$1"
     local repo
+
+    if [[ ${#REPOS[@]} -eq 0 ]]; then
+        echo "ERROR: REPOS is empty in backup.conf. Configure at least one repo." >&2
+        exit 1
+    fi
+
     if [[ -n "$filter" ]]; then
         for repo in "${REPOS[@]}"; do
             if [[ "$repo" == *"$filter"* ]]; then
