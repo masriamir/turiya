@@ -173,14 +173,14 @@ for REPO in "${REPOS[@]}"; do
 
         if ! $DRY_RUN; then
             log_human "Running forget/prune on $REPO..."
-            FORGET_JSON=$(restic -r "$REPO" forget "${RETENTION_FLAGS[@]}" --prune --json 2>&1) && {
+            if FORGET_JSON=$(restic -r "$REPO" forget "${RETENTION_FLAGS[@]}" --prune --json 2>&1); then
                 REMOVED_COUNT=$(jq '[.[].remove // [] | length] | add // 0' <<<"$FORGET_JSON" 2>/dev/null || echo 0)
                 emit_event backup "$REPO" info prune --num removed_count "$REMOVED_COUNT"
                 log_human "Prune on $REPO: SUCCESS (removed $REMOVED_COUNT snapshot(s))"
-            } || {
+            else
                 emit_event backup "$REPO" warn prune --str message "prune failed"
                 log_human "WARNING: Prune on $REPO failed. Backup data is safe; run manually to clean up."
-            }
+            fi
         fi
     else
         emit_event backup "$REPO" error error --str message "backup command failed"

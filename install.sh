@@ -62,7 +62,8 @@ ALL_REMOTES_OK=true
 
 for REPO in "${REPOS[@]}"; do
     # Extract remote name from "rclone:<remote>:<path>"
-    REMOTE=$(echo "$REPO" | sed 's|rclone:\([^:]*\):.*|\1|')
+    REMOTE="${REPO#rclone:}"
+    REMOTE="${REMOTE%%:*}"
     if echo "$RCLONE_REMOTES" | grep -q "^${REMOTE}:$"; then
         success "rclone remote '$REMOTE' found."
     else

@@ -76,6 +76,8 @@ snapshot_matches_filters() {
         if [[ ${#GLOB_ARGS[@]} -gt 0 ]]; then
             for pattern in "${GLOB_ARGS[@]}"; do
                 while IFS= read -r p; do
+                    # --glob patterns match basename via [[ == ]] glob semantics; unquoted RHS is intentional.
+                    # shellcheck disable=SC2053
                     [[ "$(basename "$p")" == $pattern ]] && keep=true
                 done < <(jq -r '.[]' <<<"$paths_json")
             done
@@ -86,6 +88,8 @@ snapshot_matches_filters() {
     if [[ ${#EXCLUDE_ARGS[@]} -gt 0 ]]; then
         for pattern in "${EXCLUDE_ARGS[@]}"; do
             while IFS= read -r p; do
+                # --exclude also matches basename via [[ == ]] glob semantics; unquoted RHS is intentional.
+                # shellcheck disable=SC2053
                 if [[ "$p" == *"$pattern"* || "$(basename "$p")" == $pattern ]]; then
                     return 1
                 fi

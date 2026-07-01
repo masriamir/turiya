@@ -30,7 +30,8 @@ init_logging() {
 }
 
 log_human() {
-    local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
+    local msg
+    msg="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
     echo "$msg" | tee -a "$LOG_HUMAN"
 }
 
@@ -41,6 +42,8 @@ emit_event() {
     local jq_args=(-nc --arg ts "$(date '+%Y-%m-%dT%H:%M:%S%z')" \
                        --arg op "$op" --arg repo "$repo" \
                        --arg level "$level" --arg event "$event")
+    # $ts/$op/$repo/$level/$event below are jq --arg names, not bash variables; single quotes are intentional.
+    # shellcheck disable=SC2016
     local filter='{ts:$ts, op:$op, repo:(if $repo == "" then null else $repo end), level:$level, event:$event}'
     local n=0 kind key value argname
     while [[ $# -gt 0 ]]; do

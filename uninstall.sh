@@ -36,11 +36,13 @@ success "pmset schedule cleared."
 echo ""
 read -r -p "Remove restic password from Keychain? [y/N] " REMOVE_PW
 if [[ "$REMOVE_PW" =~ ^[Yy]$ ]]; then
-    security delete-generic-password \
+    if security delete-generic-password \
         -a "$KEYCHAIN_ACCOUNT" \
-        -s "$KEYCHAIN_SERVICE" 2>/dev/null && \
-        success "Keychain entry removed." || \
+        -s "$KEYCHAIN_SERVICE" 2>/dev/null; then
+        success "Keychain entry removed."
+    else
         warn "Keychain entry not found."
+    fi
 else
     info "Keychain entry kept."
 fi
