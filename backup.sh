@@ -60,6 +60,12 @@ if [[ ${#REPOS[@]} -eq 0 ]]; then
     exit 1
 fi
 
+if [[ ${#SOURCES[@]} -eq 0 ]]; then
+    log_human "ERROR: SOURCES is empty in backup.conf. Configure at least one source directory."
+    emit_event backup "" error run_end --str status "failure"
+    exit 1
+fi
+
 # ── Resolve target paths (--include/--pattern/--glob) ────────────────────────
 TARGET_PATHS=()
 
