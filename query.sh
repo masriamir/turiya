@@ -74,7 +74,12 @@ fi
 
 for REPO in "${REPOS_TO_QUERY[@]}"; do
     if [[ -n "$SINCE$UNTIL" ]]; then
-        SNAPSHOTS_JSON=$(restic -r "$REPO" snapshots --json)
+        if ! SNAPSHOTS_JSON=$(restic -r "$REPO" snapshots --json 2>&1); then
+            ERR_MSG=$(jq -r '.message // "unknown error"' <<<"$SNAPSHOTS_JSON" 2>/dev/null || echo "$SNAPSHOTS_JSON")
+            emit_event query "$REPO" error error --str message "$ERR_MSG"
+            echo "ERROR: query on $REPO failed: $ERR_MSG" >&2
+            continue
+        fi
         FILTER='.[]'
         [[ -n "$SINCE" ]] && FILTER="$FILTER | select(.time >= \"$SINCE\")"
         [[ -n "$UNTIL" ]] && FILTER="$FILTER | select(.time <= \"$UNTIL\")"
