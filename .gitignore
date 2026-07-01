@@ -18,3 +18,4 @@ rclone.conf
 .idea/
 *.swp
 *.swo
+.superpowers/
