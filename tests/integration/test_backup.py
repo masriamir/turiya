@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any, cast
 
 from turiya import config, restic
 from turiya.operations import backup
@@ -15,8 +16,11 @@ def test_plain_backup_creates_snapshot(harness_config: Path) -> None:
 def test_glob_restricts_targets(harness_config: Path) -> None:
     cfg = config.load()
     assert backup.run(cfg, glob=("todo.md",)) is True
-    snaps = restic.run_json(cfg.repos[0].url, ["snapshots"], password="testpass123")
-    paths = snaps[-1]["paths"]  # type: ignore[index]
+    snaps = cast(
+        list[dict[str, Any]],
+        restic.run_json(cfg.repos[0].url, ["snapshots"], password="testpass123"),
+    )
+    paths = snaps[-1]["paths"]
     assert any(p.endswith("todo.md") for p in paths)
 
 
