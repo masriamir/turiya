@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.0.0] - 2026-07-01
+## [2.0.0] - 2026-07-02
 
 ### Changed
 - Rewrote the entire tool from bash to a library-first Python 3.14 package
