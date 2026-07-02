@@ -110,7 +110,16 @@ The future dashboard imports `operations` + `config` directly — never `cli`.
 - `operations.query.run(config, *, repo=None, since=None, until=None, find=None, versions=None) -> QueryResult`
 - `operations.setup.run(config) -> None` / `operations.setup.teardown(config) -> None`
 
-Operations emit events through `logging.py` and return typed result objects.
+Operations emit events through `logging.py`.
+
+> **As-built note (v2.0.0):** the typed `BackupResult`/`RestoreResult`/
+> `list[RepoStatus]`/`QueryResult` return objects above were the original
+> design aspiration. As shipped, `backup`/`restore`/`status`/`query`.run
+> return a plain success `bool` and `setup.run`/`teardown` return `None`;
+> structured per-run detail is available via the JSONL logs. Richer typed
+> result objects are deliberately deferred to the future dashboard
+> sub-project, which will define the exact fields it needs. See `CLAUDE.md`
+> for the authoritative current signatures.
 
 ## Configuration
 
