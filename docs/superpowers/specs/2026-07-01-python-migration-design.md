@@ -122,6 +122,11 @@ if absent. Paths support `~` / `$HOME` expansion at load time.
 Schema (illustrative):
 
 ```toml
+# Root-level keys (sources/excludes) must precede all [table]/[[array]]
+# headers, otherwise TOML absorbs them into the preceding table.
+sources = ["~/Documents", "~/Desktop", "~/Projects"]
+excludes = [".DS_Store", "node_modules", "*.tmp"]
+
 [identity]
 # Names the launchd job (replaces the hardcoded com.amir.turiya) — item 2
 label = "com.amir.turiya"
@@ -144,9 +149,6 @@ wake_offset_minutes = 5   # pmset wake, minutes before the earliest schedule
 url = "rclone:gdrive:turiya-backups"
 [[repo]]
 url = "rclone:dropbox:turiya-backups"
-
-sources = ["~/Documents", "~/Desktop", "~/Projects"]
-excludes = [".DS_Store", "node_modules", "*.tmp"]
 
 [retention]
 keep_daily = 7

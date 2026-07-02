@@ -243,6 +243,10 @@ git commit -m "feat: add typed exception hierarchy"
 
 `tests/fixtures/valid_config.toml`:
 ```toml
+# Root-level keys (sources/excludes) must precede all [table]/[[array]] headers.
+sources = ["~/Documents", "~/Desktop"]
+excludes = [".DS_Store", "node_modules"]
+
 [identity]
 label = "com.example.turiya"
 
@@ -263,9 +267,6 @@ url = "rclone:gdrive:turiya-backups"
 
 [[repo]]
 url = "rclone:dropbox:turiya-backups"
-
-sources = ["~/Documents", "~/Desktop"]
-excludes = [".DS_Store", "node_modules"]
 
 [retention]
 keep_daily = 7
@@ -1342,13 +1343,15 @@ def harness_config(
     log_dir = tmp_path / "logs"
     repo_tables = "\n".join(f'[[repo]]\nurl = "{r}"\n' for r in restic_repos)
     cfg = tmp_path / "config.toml"
+    # NOTE: root-level keys (sources/excludes) MUST come before any [table] or
+    # [[array]] header, or TOML absorbs them into the preceding table.
     cfg.write_text(
+        f'sources = ["{source_tree}"]\nexcludes = ["*.tmp"]\n'
         '[identity]\nlabel = "com.test.turiya"\n'
         '[keychain]\naccount = "restic-test"\nservice = "turiya-test"\n'
         "[[schedule]]\nweekday = 0\nhour = 10\nminute = 0\n"
         "[power]\nwake_offset_minutes = 5\n"
         f"{repo_tables}"
-        f'sources = ["{source_tree}"]\nexcludes = ["*.tmp"]\n'
         "[retention]\nkeep_daily = 7\nkeep_weekly = 4\nkeep_monthly = 6\nkeep_yearly = 1\n"
         f'[logging]\ndir = "{log_dir}"\nmax_bytes = 5242880\njson_per_file = true\n'
     )
