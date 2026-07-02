@@ -1,0 +1,49 @@
+name: Bug report
+description: Something isn't working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Please redact any private paths or remote
+        names from logs before pasting them.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: Running `turiya backup` exited non-zero with...
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: Command / operation
+      description: The exact command or operation involved.
+      placeholder: turiya query --repo gdrive --find foo.txt
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: >
+        Lines from the JSONL logs under `logging.dir` (`ops.jsonl` or the
+        per-op file) and any stderr output. This is automatically formatted as
+        code, so no backticks needed.
+      render: text
+  - type: input
+    id: turiya-version
+    attributes:
+      label: turiya version
+      placeholder: 2.0.0 (or git SHA)
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: macOS version, and `restic version` / `rclone version`.
+      placeholder: macOS 15.5, restic 0.17.3, rclone 1.68.2
+    validations:
+      required: true
