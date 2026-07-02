@@ -41,3 +41,18 @@ def test_render_plist_omits_weekday_when_none() -> None:
 def test_earliest_wake_time_subtracts_offset() -> None:
     cfg = config.load(FIXTURE)  # single schedule 10:00, offset 5
     assert scheduling.earliest_wake_time(cfg) == (9, 55)
+
+
+def test_render_plist_escapes_xml_special_chars() -> None:
+    import plistlib
+
+    cfg = config.load(FIXTURE)
+    xml = scheduling.render_plist(
+        cfg,
+        Schedule(weekday=None, hour=1, minute=0),
+        label="com.a&b.<turiya>",
+        program=["/Users/x/Photos & Videos/bin/turiya", "backup"],
+    )
+    parsed = plistlib.loads(xml.encode())  # raises if XML is malformed
+    assert parsed["Label"] == "com.a&b.<turiya>"  # round-trips (not double-escaped)
+    assert "/Users/x/Photos & Videos/bin/turiya" in parsed["ProgramArguments"]

@@ -6,6 +6,7 @@ import subprocess
 from importlib.resources import files
 from pathlib import Path
 from string import Template
+from xml.sax.saxutils import escape
 
 from .config import Config, Schedule
 from .errors import SchedulingError
@@ -20,7 +21,7 @@ def plist_label(cfg: Config, index: int) -> str:
 
 
 def render_plist(cfg: Config, schedule: Schedule, *, label: str, program: list[str]) -> str:
-    program_args = "\n".join(f"        <string>{arg}</string>" for arg in program)
+    program_args = "\n".join(f"        <string>{escape(arg)}</string>" for arg in program)
     cal_lines = []
     if schedule.weekday is not None:
         cal_lines.append(
@@ -29,11 +30,11 @@ def render_plist(cfg: Config, schedule: Schedule, *, label: str, program: list[s
     cal_lines.append(f"        <key>Hour</key>\n        <integer>{schedule.hour}</integer>")
     cal_lines.append(f"        <key>Minute</key>\n        <integer>{schedule.minute}</integer>")
     return _TEMPLATE.substitute(
-        label=label,
+        label=escape(label),
         program_args=program_args,
         calendar="\n".join(cal_lines),
-        stdout_path=str(cfg.logging.dir / "launchd.log"),
-        stderr_path=str(cfg.logging.dir / "launchd-err.log"),
+        stdout_path=escape(str(cfg.logging.dir / "launchd.log")),
+        stderr_path=escape(str(cfg.logging.dir / "launchd-err.log")),
     )
 
 
@@ -51,16 +52,19 @@ def install(cfg: Config, *, program: list[str]) -> None:
     for index, schedule in enumerate(cfg.schedules):
         label = plist_label(cfg, index)
         dest = agents / f"{label}.plist"
-        dest.write_text(render_plist(cfg, schedule, label=label, program=program))
+        dest.write_text(render_plist(cfg, schedule, label=label, program=program), encoding="utf-8")
         subprocess.run(["launchctl", "unload", str(dest)], capture_output=True, text=True)
         result = subprocess.run(["launchctl", "load", str(dest)], capture_output=True, text=True)
         if result.returncode != 0:
             raise SchedulingError(f"launchctl load failed for {label}: {result.stderr.strip()}")
     hour, minute = earliest_wake_time(cfg)
-    subprocess.run(
+    result = subprocess.run(
         ["sudo", "pmset", "repeat", "wakeorpoweron", "MTWRFSU", f"{hour:02d}:{minute:02d}:00"],
-        check=False,
+        capture_output=True,
+        text=True,
     )
+    if result.returncode != 0:
+        raise SchedulingError(f"pmset schedule failed: {result.stderr.strip()}")
 
 
 def uninstall(cfg: Config) -> None:
