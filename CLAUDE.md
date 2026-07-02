@@ -3,65 +3,72 @@
 ## Project purpose
 
 turiya automates encrypted, versioned backups of this Mac's important
-directories to three cloud remotes (Google Drive, Dropbox, pCloud) via
-restic + rclone, on a weekly `launchd` schedule with `pmset` wake support.
-All configuration lives in `backup.conf`; the scripts are thin orchestration
-around `restic`, `rclone`, and `jq`.
+directories to configured cloud remotes (Google Drive, Dropbox, pCloud) via
+restic + rclone, on a configurable `launchd` schedule with `pmset` wake
+support. It is a **library-first Python 3.14 package**: a layered core
+(`config`/`keychain`/`restic`/`rclone`/`logging`/`scheduling`) plus
+`operations/*` (the actual business logic) sit behind a thin
+[Typer](https://typer.tiangolo.com/) CLI. Future consumers (a read-only
+dashboard, notifications, integrity automation) import `operations` +
+`config` directly — never the CLI.
 
 ## File map
 
 | File | Responsibility |
 |---|---|
-| `backup.conf` | Single source of truth for all configuration: schedule, Keychain names, repos, sources, excludes, retention, logging. Nothing else should hardcode a value that belongs here. |
-| `lib/common.sh` | Sourced helper library: `load_config`, `check_dependencies`, `get_restic_password`, `resolve_repo`. Not executable on its own. |
-| `lib/logging.sh` | Sourced helper library: `init_logging`, `log_human`, `emit_event`, `emit_summary`, `process_restic_json_stream`, `rotate_log_file`. Implements the JSONL logging schema below. |
-| `backup.sh` | Runs the weekly backup (invoked by launchd). `--dry-run`; `--include`/`--pattern`/`--glob` restrict this run's source list; `--exclude` adds one-off restic excludes. |
-| `restore.sh` | Interactive guided restore. `--repo`/`--snapshot`/`--target` plus repeatable `--include`/`--pattern`/`--glob`/`--exclude`, mapped directly to restic's native restore flags. |
-| `status.sh` | Snapshot inspection across all configured repos. `--latest` (default)/`--all`/`--check` plus `--include`/`--pattern`/`--glob`/`--exclude` to filter which snapshots are shown, by top-level source path. |
-| `query.sh` | Snapshot search: `--since`/`--until` (date range), `--find` (which snapshot contains a path/glob), `--versions` (every version of a file across snapshots), `--repo` to scope, `--json` for raw output. |
-| `install.sh` | One-time setup: dependency check, Keychain password prompt, rclone remote check, restic repo init, launchd plist render + load, pmset wake schedule. |
-| `uninstall.sh` | Reverses install.sh: unloads the launchd job, clears the pmset schedule, optionally removes the Keychain entry and `LOG_DIR`. |
-| `com.amir.turiya.plist.template` | launchd plist template, rendered by `install.sh`. Don't edit the generated `.plist` directly — it's gitignored and regenerated on every `install.sh` run. |
+| `config.example.toml` | Template for `~/.config/turiya/config.toml` — schedule, identity, Keychain names, repos, sources, excludes, retention, logging. Nothing should hardcode a value that belongs here. |
+| `src/turiya/config.py` | `load(path=None) -> Config`: reads TOML via stdlib `tomllib`, validates into a pydantic v2 `Config` model. `TURIYA_CONFIG` env var overrides the path (also the test-isolation hook). |
+| `src/turiya/keychain.py` | macOS `security` subprocess wrapper: get/set/delete the restic password. `RESTIC_PASSWORD` env var short-circuits the lookup (test hook, preserved from v1.0.0). |
+| `src/turiya/restic.py` | Subprocess wrapper: runs restic with `--json --verbose=2`, captures **both** stdout and stderr (restic writes fatal errors as `exit_error` JSON to stderr), parses lines into typed `FileEvent`/`SummaryEvent`/`ErrorEvent`. |
+| `src/turiya/rclone.py` | Verifies configured remotes exist (used by `setup`). |
+| `src/turiya/logging.py` | `StructuredLogger`: structured JSONL + human-readable logging. Implements the JSONL schema below — **format is unchanged from v1.0.0**. |
+| `src/turiya/scheduling.py` | Renders launchd plist(s) from `identity.label` + each `[[schedule]]` entry (items 2 + 11); installs/removes via `launchctl`; sets/clears `pmset` wake. |
+| `src/turiya/errors.py` | Typed exception hierarchy: `TuriyaError` (base) → `ConfigError`, `KeychainError`, `ResticError`, `RcloneError`, `SchedulingError`. |
+| `src/turiya/operations/backup.py` | `run(config, *, dry_run, include, pattern, glob, exclude) -> bool`. `--dry-run`; `--include`/`--pattern`/`--glob` replace this run's source list; `--exclude` adds one-off restic excludes. |
+| `src/turiya/operations/restore.py` | `run(config, *, repo, snapshot, target, include, pattern, glob, exclude) -> bool`. Guided restore mapped to restic's native restore flags. Defines `resolve_repo`, reused by `query`. |
+| `src/turiya/operations/status.py` | `run(config, *, mode, include, pattern, glob, exclude) -> bool`. Snapshot inspection across all configured repos; `mode` is `latest`/`all`/`check`. |
+| `src/turiya/operations/query.py` | `run(config, *, repo, since, until, find, versions, json_output) -> bool`. Snapshot search: date range, file/glob find, per-file version history. |
+| `src/turiya/operations/setup.py` | `run(config, *, password=None, program=None)` / `teardown(config)`. Keychain prompt, rclone remote check, restic repo init, launchd plist install/removal, pmset. |
+| `src/turiya/templates/launchd.plist.tmpl` | launchd plist template, rendered via stdlib `string.Template` — de-hardcoded (item 2), no jinja2 dependency. |
+| `src/turiya/cli.py` | Thin Typer app; maps `backup`/`restore`/`status`/`query`/`setup`/`teardown` subcommands to `operations.*.run`; console entry point `turiya`. |
 | `README.md` | User-facing usage docs. |
 | `.copilot-instructions.md` | Copilot-facing project instructions — this file's counterpart. |
 
+The original bash v1.0.0 implementation (shell backup/restore/status/query
+runners, the setup/teardown shell scripts, shared shell helper libraries, the
+shell config file, and the launchd plist shell template) has been removed
+from `main` and remains recoverable at the `v1.0.0` git tag.
+
 ## Conventions
 
-- Every script: `set -euo pipefail`; resolves its own `SCRIPT_DIR` from `BASH_SOURCE[0]`; sources `lib/common.sh` then `lib/logging.sh`; calls `load_config "$SCRIPT_DIR"` before touching any config variable.
-- **macOS ships bash 3.2.57 at `/bin/bash`** — confirmed on this machine via `/bin/bash --version`. Homebrew's newer bash on `PATH` is irrelevant: the `#!/bin/bash` shebang always resolves to the system one. Bash 3.2 throws "unbound variable" when expanding `"${ARR[@]}"` on a *declared-but-empty* array under `set -u` (bash 4.4+ doesn't have this bug). **Never expand a possibly-empty array directly** — guard first: `if [[ ${#ARR[@]} -gt 0 ]]; then ... fi`. This won't reproduce if you test under an interactively-launched Homebrew bash 5 — only under the real `/bin/bash` the scripts run with.
-- No associative arrays, `mapfile`/`readarray`, `${var,,}`/`${var^^}`, `local -n` namerefs, or other bash-4+-only features.
-- All JSON construction goes through `jq` (`jq -c`, `jq -nc`) — never hand-built JSON strings.
-- restic pattern semantics (used by `--pattern`/`--glob`/`--include`/`--exclude` on `restore.sh`): a pattern containing `/` is path-anchored; a bare pattern (no `/`) matches the filename at any depth. This is restic's own behavior, not something these scripts implement — see `restic backup --help` / `restic restore --help`.
-- Config lives only in `backup.conf`. Two env var overrides exist for testing, not normal use: `TURIYA_CONFIG` (override which file `load_config` reads) and `RESTIC_PASSWORD` (if already set, `get_restic_password` skips the Keychain lookup).
-- Logging lifecycle: every operation calls `init_logging <op>` once at startup, `emit_event <op> "" info run_start` immediately after, and `emit_event <op> "" info|error run_end --str status success|failure` at the very end.
+- **Toolchain:** Python 3.14, managed with [uv](https://docs.astral.sh/uv/). Use `uv run <cmd>` for everything (`uv run pytest`, `uv run turiya ...`) rather than activating the venv manually. Add dependencies with `uv add` / dev dependencies with `uv add --dev`; `uv.lock` is committed and must stay in sync with `pyproject.toml`.
+- **Gates, run before every commit:**
+  ```bash
+  uv run pytest
+  uv run ruff check .
+  uv run mypy src tests
+  uv run ty check
+  ```
+  All four must be clean. `ruff` also handles formatting (`uv run ruff format .`).
+- **Layering rule:** `operations/*` contain the logic and depend on the lower-level modules (`config`, `keychain`, `restic`, `rclone`, `logging`, `scheduling`). `cli.py` is thin and depends only on `operations` + `config` — it must never contain business logic, only argument wiring and error-to-exit-code translation. Anything importable by a future dashboard belongs in `operations` or below, not in `cli.py`.
+- **Config:** all runtime configuration lives in TOML at `~/.config/turiya/config.toml` (template: `config.example.toml`), loaded with stdlib `tomllib` and validated into a pydantic v2 `Config` model (`src/turiya/config.py`). Root-level keys (`sources`, `excludes`) must precede all `[table]`/`[[array]]` headers in the TOML file, or TOML will silently absorb them into the preceding table. Two env var overrides exist for testing, not normal use: `TURIYA_CONFIG` (override which file `config.load` reads) and `RESTIC_PASSWORD` (skip the Keychain lookup if already set).
+- **Errors:** every operation-level failure is a subclass of `TuriyaError` (`src/turiya/errors.py`). `cli.py` catches `TuriyaError`, prints a clean message to stderr, and exits non-zero — never let a raw traceback reach the user for an expected failure mode. restic/rclone failures always surface their real underlying message (never swallowed).
+- **restic pattern semantics** (used by `--pattern`/`--glob`/`--include`/`--exclude` on `restore`): a pattern containing `/` is path-anchored; a bare pattern (no `/`) matches the filename at any depth. This is restic's own behavior, not something this codebase implements — see `restic backup --help` / `restic restore --help`.
+- **Subprocess JSON handling:** restic is invoked with `--json --verbose=2`; both stdout and stderr are captured (restic writes fatal errors as `message_type: "exit_error"` JSON to stderr). All JSON output is via `json.dumps` — never hand-built strings.
+- **Testing:** unit tests mock subprocess calls where the logic under test is pure (argument assembly, event parsing, config validation, plist rendering); integration tests drive real local restic repos via fixtures that `restic init` a temp repo and set `TURIYA_CONFIG` + `RESTIC_PASSWORD`.
+- **Logging lifecycle:** every operation creates a `StructuredLogger(op, config.logging)`, calls `.run_start()` immediately, and `.run_end(success=...)` at the very end — mirroring v1.0.0's `init_logging` / `emit_event run_start` / `emit_event run_end` lifecycle.
 
-## How to add a new script
+## How to add a new operation
 
-1. Start from this skeleton:
-   ```bash
-   #!/bin/bash
-   set -euo pipefail
-   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-   # shellcheck source=lib/common.sh
-   source "$SCRIPT_DIR/lib/common.sh"
-   # shellcheck source=lib/logging.sh
-   source "$SCRIPT_DIR/lib/logging.sh"
-   load_config "$SCRIPT_DIR"
-   # ... parse args ...
-   init_logging <opname>
-   emit_event <opname> "" info run_start
-   check_dependencies restic rclone security jq
-   get_restic_password
-   # ... business logic, using log_human / emit_event / process_restic_json_stream ...
-   emit_event <opname> "" info run_end --str status "success"
-   ```
-2. Add `<opname>` to the file map above and to `README.md`'s script reference.
-3. If the script invokes restic `backup`/`restore` (or anything else that emits `--json` progress), pipe it through `process_restic_json_stream <opname> "$REPO"` rather than parsing restic's plain-text output.
-4. Run `shellcheck -x path/to/script.sh` before committing — zero warnings required.
+1. Add `src/turiya/operations/<name>.py` with a `run(config: Config, **kwargs) -> ...` function; import only `config`, `keychain`, `restic`, `rclone`, `logging`, `scheduling`, `errors` — never `cli`.
+2. Wire it into `src/turiya/cli.py` as a new `@app.command()`, thin argument mapping only.
+3. Add the file to the file map above and to `README.md`'s CLI reference.
+4. Write unit tests (subprocess mocked) and, if it touches restic, an integration test against a real temp repo fixture.
+5. Run the full gate (`pytest`, `ruff check`, `mypy`, `ty check`) before considering the change done.
 
 ## Logging schema
 
-JSONL envelope, one object per line, written only via `jq -c`:
+JSONL envelope, one object per line, written only via `json.dumps` (see `StructuredLogger.emit_event` in `src/turiya/logging.py`):
 ```json
 {"ts":"...","op":"backup|restore|status|query","repo":"<repo-string>|null","level":"info|warn|error","event":"run_start|file|summary|error|run_end|prune", ...event-specific fields}
 ```
@@ -69,13 +76,24 @@ JSONL envelope, one object per line, written only via `jq -c`:
 - `summary` events: the entire raw restic summary/check object is merged in as-is — field names vary by restic subcommand (backup's summary differs from restore's), so don't assume a fixed shape beyond the envelope itself.
 - `error` events: `message`.
 - `prune` events (backup only): `removed_count`.
-- Files, all under `LOG_DIR`: `ops.jsonl` (combined, every op interleaved), `<op>.jsonl` (per-operation: `backup.jsonl`, `restore.jsonl`, `status.jsonl`, `query.jsonl`), `<op>.log` (human-readable equivalent). All rotate at `LOG_MAX_BYTES`.
-- `LOG_JSON_PER_FILE=false` in `backup.conf` suppresses `file` events only; `summary`/`error`/`run_start`/`run_end`/`prune` are always logged.
+- Files, all under `logging.dir`: `ops.jsonl` (combined, every op interleaved), `<op>.jsonl` (per-operation: `backup.jsonl`, `restore.jsonl`, `status.jsonl`, `query.jsonl`), `<op>.log` (human-readable equivalent). All rotate at `logging.max_bytes`.
+- `logging.json_per_file = false` in the config suppresses `file` events only; `summary`/`error`/`run_start`/`run_end`/`prune` are always logged.
+
+This schema and file layout are **preserved exactly** from v1.0.0 (byte-compatible) so a future read-only dashboard can consume it unchanged.
 
 ## What not to touch
 
-- `KEYCHAIN_ACCOUNT`/`KEYCHAIN_SERVICE` in `backup.conf` must stay in sync with whatever `install.sh` wrote to Keychain — don't change one without the other (or without re-running `install.sh`).
-- `com.amir.turiya.plist.template`'s placeholder tokens (`{{HOME}}`, `{{SCRIPT_DIR}}`, `{{BACKUP_WEEKDAY}}`, `{{BACKUP_HOUR}}`, `{{BACKUP_MINUTE}}`) — `install.sh`'s `sed` render step depends on these exact strings.
-- The retention/forget logic in `backup.sh` — it's intentionally simple and matches the documented retention policy; don't add extra forget flags without updating `backup.conf` and `README.md` together.
-- `set -euo pipefail` at the top of every script — don't remove it to silence an error; fix the underlying issue (usually the bash 3.2 empty-array gotcha above).
-- Don't hardcode a path, repo name, or credential anywhere — it belongs in `backup.conf`.
+- **The core public API** that the future dashboard and other sub-projects depend on:
+  - `config.load(path: Path | None = None) -> Config`
+  - `operations.backup.run(config, *, dry_run=False, include=(), pattern=(), glob=(), exclude=()) -> BackupResult`
+  - `operations.restore.run(config, *, repo=None, snapshot="latest", target, include=(), pattern=(), glob=(), exclude=()) -> RestoreResult`
+  - `operations.status.run(config, *, mode="latest", include=(), pattern=(), glob=(), exclude=()) -> list[RepoStatus]`
+  - `operations.query.run(config, *, repo=None, since=None, until=None, find=None, versions=None) -> QueryResult`
+  - `operations.setup.run(config) -> None` / `operations.setup.teardown(config) -> None`
+
+  Don't change these signatures or drop fields from their result types without a deliberate, coordinated update — external consumers are expected to import them directly.
+- **The JSONL logging schema** documented above — it must stay byte-compatible with v1.0.0 so existing log archives and the future dashboard keep working.
+- `identity.label` / `keychain.account` / `keychain.service` in the config must stay in sync with whatever `turiya setup` wrote to Keychain and installed via `launchctl` — don't change one without the other (or without re-running `turiya setup`).
+- The retention/forget logic in `operations/backup.py` — it's intentionally simple and matches the documented retention policy; don't add extra forget flags without updating `config.example.toml` and `README.md` together.
+- Don't hardcode a path, repo name, or credential anywhere — it belongs in `config.toml`.
+- Don't add a parallel logging mechanism — always go through `StructuredLogger` in `src/turiya/logging.py`.

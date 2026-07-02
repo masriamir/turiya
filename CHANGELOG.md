@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-07-01
+
+### Changed
+- Rewrote the entire tool from bash to a library-first Python 3.14 package
+  (`turiya`): layered core (config/keychain/restic/rclone/logging/
+  scheduling + operations) with a thin Typer CLI. Behavior parity with 1.0.0.
+
+### Added
+- Item 2: launchd job label is config-driven (no hardcoded name).
+- Item 10: full CLI help/validation via Typer.
+- Item 11: multiple/flexible schedules via `[[schedule]]` config tables.
+
+### Removed
+- The bash implementation and its `jq` runtime dependency (recoverable at tag `v1.0.0`).
+
 ## [1.0.0] - 2026-07-01
 
 First tagged release: the bash implementation of turiya — automated,
