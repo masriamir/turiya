@@ -148,7 +148,7 @@ git commit -m "feat: scaffold turiya Python package with uv toolchain"
 - Create: `src/turiya/errors.py`, `tests/test_errors.py`
 
 **Interfaces:**
-- Produces: `ResticBackupError` (base), `ConfigError`, `KeychainError`, `ResticError`, `RcloneError`, `SchedulingError` — all accept a message string; used by every later module.
+- Produces: `TuriyaError` (base), `ConfigError`, `KeychainError`, `ResticError`, `RcloneError`, `SchedulingError` — all accept a message string; used by every later module.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -160,7 +160,7 @@ from turiya.errors import (
     ConfigError,
     KeychainError,
     RcloneError,
-    ResticBackupError,
+    TuriyaError,
     ResticError,
     SchedulingError,
 )
@@ -170,11 +170,11 @@ from turiya.errors import (
     "exc",
     [ConfigError, KeychainError, ResticError, RcloneError, SchedulingError],
 )
-def test_subclasses_of_base(exc: type[ResticBackupError]) -> None:
-    assert issubclass(exc, ResticBackupError)
+def test_subclasses_of_base(exc: type[TuriyaError]) -> None:
+    assert issubclass(exc, TuriyaError)
     instance = exc("boom")
     assert str(instance) == "boom"
-    assert isinstance(instance, ResticBackupError)
+    assert isinstance(instance, TuriyaError)
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -188,27 +188,27 @@ Expected: FAIL (ModuleNotFoundError: turiya.errors).
 """Typed exception hierarchy for turiya."""
 
 
-class ResticBackupError(Exception):
+class TuriyaError(Exception):
     """Base class for all turiya errors."""
 
 
-class ConfigError(ResticBackupError):
+class ConfigError(TuriyaError):
     """Configuration is missing, unreadable, or invalid."""
 
 
-class KeychainError(ResticBackupError):
+class KeychainError(TuriyaError):
     """The restic password could not be retrieved from or stored in the Keychain."""
 
 
-class ResticError(ResticBackupError):
+class ResticError(TuriyaError):
     """A restic invocation failed."""
 
 
-class RcloneError(ResticBackupError):
+class RcloneError(TuriyaError):
     """An rclone invocation failed or a remote is missing."""
 
 
-class SchedulingError(ResticBackupError):
+class SchedulingError(TuriyaError):
     """launchd/pmset scheduling setup failed."""
 ```
 
@@ -2121,8 +2121,8 @@ git commit -m "feat: add setup/teardown wiring (port of install.sh/uninstall.sh)
 - Create: `src/turiya/cli.py`, `src/turiya/__main__.py`, `tests/test_cli.py`
 
 **Interfaces:**
-- Consumes: every `operations.*` module, `config.load`, `errors.ResticBackupError`.
-- Produces: a Typer `app` with subcommands `backup`, `restore`, `status`, `query`, `setup`, `teardown`. Each loads config via `config.load()`, calls the matching operation, maps a `False`/exception to a non-zero exit (`typer.Exit(code=1)`), and prints `ResticBackupError` messages cleanly. `__main__.py` calls `app()` so `python -m turiya` works (used by launchd).
+- Consumes: every `operations.*` module, `config.load`, `errors.TuriyaError`.
+- Produces: a Typer `app` with subcommands `backup`, `restore`, `status`, `query`, `setup`, `teardown`. Each loads config via `config.load()`, calls the matching operation, maps a `False`/exception to a non-zero exit (`typer.Exit(code=1)`), and prints `TuriyaError` messages cleanly. `__main__.py` calls `app()` so `python -m turiya` works (used by launchd).
 
 - [ ] **Step 1: Write the tests**
 
@@ -2170,7 +2170,7 @@ from __future__ import annotations
 import typer
 
 from . import config
-from .errors import ResticBackupError
+from .errors import TuriyaError
 from .operations import backup as backup_op
 from .operations import query as query_op
 from .operations import restore as restore_op
@@ -2183,7 +2183,7 @@ app = typer.Typer(add_completion=False, help="turiya: encrypted multi-cloud back
 def _load() -> config.Config:
     try:
         return config.load()
-    except ResticBackupError as exc:
+    except TuriyaError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
 
@@ -2239,7 +2239,7 @@ def query(
     try:
         ok = query_op.run(_load(), repo=repo, since=since, until=until, find=find,
                           versions=versions, json_output=json_output)
-    except ResticBackupError as exc:
+    except TuriyaError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
     raise typer.Exit(code=0 if ok else 1)
@@ -2249,7 +2249,7 @@ def query(
 def setup(password: str | None = typer.Option(None, "--password")) -> None:
     try:
         setup_op.run(_load(), password=password)
-    except ResticBackupError as exc:
+    except TuriyaError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
 
