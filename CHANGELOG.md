@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - 2026-07-01
 
-First tagged release: the bash implementation of restic-backup — automated,
+First tagged release: the bash implementation of turiya — automated,
 encrypted, scheduled backups to multiple cloud remotes via restic + rclone on
 macOS (launchd + pmset), with the restic repository password stored in the
 macOS Keychain.
@@ -39,6 +39,6 @@ macOS Keychain.
   initialization; dependency checks for `restic`, `rclone`, and `jq`.
 - `backup.conf` — single source of truth for all configuration (schedule,
   Keychain names, repositories, sources, excludes, retention, logging).
-- `com.amir.restic-backup.plist.template` — launchd plist template rendered by
+- `com.amir.turiya.plist.template` — launchd plist template rendered by
   `install.sh`.
 - Documentation: `README.md`, `CLAUDE.md`, and `.copilot-instructions.md`.

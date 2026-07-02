@@ -8,7 +8,7 @@
 
 load_config() {
     local script_dir="$1"
-    CONFIG_FILE="${RESTIC_BACKUP_CONFIG:-$script_dir/backup.conf}"
+    CONFIG_FILE="${TURIYA_CONFIG:-$script_dir/backup.conf}"
 
     if [[ ! -f "$CONFIG_FILE" ]]; then
         echo "ERROR: config file not found at $CONFIG_FILE" >&2

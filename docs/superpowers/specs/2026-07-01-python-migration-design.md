@@ -10,7 +10,7 @@ decision in the roadmap).
 
 ## Purpose
 
-Rewrite the restic-backup tool from bash to Python to make it maintainable
+Rewrite the turiya tool from bash to Python to make it maintainable
 and testable, and to establish a **library-first** core that later
 sub-projects (notifications, integrity automation, and a read-only web
 dashboard) consume directly instead of shelling out to CLI scripts.
@@ -72,7 +72,7 @@ scripts on `main` once it reaches feature parity.
 ```
 pyproject.toml            # metadata + [tool.*] config + deps
 uv.lock
-src/resticbackup/
+src/turiya/
   __init__.py
   config.py               # load + validate config.toml -> typed Config (pydantic v2)
   keychain.py             # macOS `security` wrapper (get/set/delete password)
@@ -92,7 +92,7 @@ src/resticbackup/
 tests/
   unit/                   # per-module, subprocess mocked where logic is pure
   integration/            # drive real local restic repos via fixtures
-  conftest.py             # fixtures: temp restic repos, sample config, RESTIC_BACKUP_CONFIG
+  conftest.py             # fixtures: temp restic repos, sample config, TURIYA_CONFIG
 templates/
   launchd.plist.tmpl      # de-hardcoded, rendered via stdlib string.Template (no jinja2)
 ```
@@ -114,8 +114,8 @@ Operations emit events through `logging.py` and return typed result objects.
 
 ## Configuration
 
-Location: `~/.config/restic-backup/config.toml`, overridable with the
-`RESTIC_BACKUP_CONFIG` environment variable (also the test-isolation hook,
+Location: `~/.config/turiya/config.toml`, overridable with the
+`TURIYA_CONFIG` environment variable (also the test-isolation hook,
 mirroring the v1.0.0 harness). A `setup` run seeds it from a shipped template
 if absent. Paths support `~` / `$HOME` expansion at load time.
 
@@ -123,12 +123,12 @@ Schema (illustrative):
 
 ```toml
 [identity]
-# Names the launchd job (replaces the hardcoded com.amir.restic-backup) — item 2
-label = "com.amir.restic-backup"
+# Names the launchd job (replaces the hardcoded com.amir.turiya) — item 2
+label = "com.amir.turiya"
 
 [keychain]
 account = "restic"
-service = "restic-backup"
+service = "turiya"
 
 # One or more schedules — item 11. Each renders a launchd StartCalendarInterval.
 [[schedule]]
@@ -141,9 +141,9 @@ wake_offset_minutes = 5   # pmset wake, minutes before the earliest schedule
 
 # Array-of-tables leaves room for per-provider options later — item 3
 [[repo]]
-url = "rclone:gdrive:restic-backups"
+url = "rclone:gdrive:turiya-backups"
 [[repo]]
-url = "rclone:dropbox:restic-backups"
+url = "rclone:dropbox:turiya-backups"
 
 sources = ["~/Documents", "~/Desktop", "~/Projects"]
 excludes = [".DS_Store", "node_modules", "*.tmp"]
@@ -155,7 +155,7 @@ keep_monthly = 6
 keep_yearly = 1
 
 [logging]
-dir = "~/.local/log/restic-backup"
+dir = "~/.local/log/turiya"
 max_bytes = 5242880
 json_per_file = true
 ```
@@ -207,7 +207,7 @@ Subcommands, each with auto-generated `--help` and native argument validation:
 - `setup` / `teardown` — all OS wiring (Keychain prompt, rclone verification,
   restic repo init, launchd plist install/removal, pmset) in Python.
 
-Installed as a console entry point (`restic-backup`) so launchd invokes it
+Installed as a console entry point (`turiya`) so launchd invokes it
 directly. Bootstrap (install uv + the package) is a small documented step /
 one-line command in the README, run once before `setup`.
 
@@ -239,7 +239,7 @@ message.
   test is pure — argument assembly, event parsing, config validation, plist
   rendering).
 - **Integration tests** drive **real local restic repos** via fixtures that
-  `restic init` temporary repos and set `RESTIC_BACKUP_CONFIG` +
+  `restic init` temporary repos and set `TURIYA_CONFIG` +
   `RESTIC_PASSWORD` — the v1.0.0 `.test-harness` approach, now as pytest
   fixtures. These exercise real backup/restore/status/query round-trips and
   assert on the emitted JSONL.
@@ -273,7 +273,7 @@ message.
 - **Config: TOML + pydantic v2** (vs. dataclasses, vs. attrs/cattrs). TOML is
   the user's standard; pydantic gives the best validation errors for a
   hand-edited file.
-- **Config location: `~/.config/restic-backup/config.toml`** (vs. macOS
+- **Config location: `~/.config/turiya/config.toml`** (vs. macOS
   Application Support, vs. explicit-path-only). Conventional, greppable, works
   installed or from a venv.
 - **Setup/teardown: Python subcommands** (vs. bash wrappers). One testable

@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# install.sh — One-time setup for restic-backup
+# install.sh — One-time setup for turiya
 # =============================================================================
 # Safe to re-run: skips steps that are already done.
 # Run as your normal user (not root). sudo is only used for pmset.
@@ -10,8 +10,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="$SCRIPT_DIR/backup.conf"
-PLIST_TEMPLATE="$SCRIPT_DIR/com.amir.restic-backup.plist.template"
-PLIST_DEST="$HOME/Library/LaunchAgents/com.amir.restic-backup.plist"
+PLIST_TEMPLATE="$SCRIPT_DIR/com.amir.turiya.plist.template"
+PLIST_DEST="$HOME/Library/LaunchAgents/com.amir.turiya.plist"
 
 # shellcheck source=backup.conf
 source "$CONFIG_FILE"

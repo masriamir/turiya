@@ -2,7 +2,7 @@
 
 ## Project purpose
 
-restic-backup automates encrypted, versioned backups of this Mac's important
+turiya automates encrypted, versioned backups of this Mac's important
 directories to three cloud remotes (Google Drive, Dropbox, pCloud) via
 restic + rclone, on a weekly `launchd` schedule with `pmset` wake support.
 All configuration lives in `backup.conf`; the scripts are thin orchestration
@@ -21,7 +21,7 @@ around `restic`, `rclone`, and `jq`.
 | `query.sh` | Snapshot search: `--since`/`--until` (date range), `--find` (which snapshot contains a path/glob), `--versions` (every version of a file across snapshots), `--repo` to scope, `--json` for raw output. |
 | `install.sh` | One-time setup: dependency check, Keychain password prompt, rclone remote check, restic repo init, launchd plist render + load, pmset wake schedule. |
 | `uninstall.sh` | Reverses install.sh: unloads the launchd job, clears the pmset schedule, optionally removes the Keychain entry and `LOG_DIR`. |
-| `com.amir.restic-backup.plist.template` | launchd plist template, rendered by `install.sh`. Don't edit the generated `.plist` directly — it's gitignored and regenerated on every `install.sh` run. |
+| `com.amir.turiya.plist.template` | launchd plist template, rendered by `install.sh`. Don't edit the generated `.plist` directly — it's gitignored and regenerated on every `install.sh` run. |
 | `README.md` | User-facing usage docs. |
 | `.copilot-instructions.md` | Copilot-facing project instructions — this file's counterpart. |
 
@@ -32,7 +32,7 @@ around `restic`, `rclone`, and `jq`.
 - No associative arrays, `mapfile`/`readarray`, `${var,,}`/`${var^^}`, `local -n` namerefs, or other bash-4+-only features.
 - All JSON construction goes through `jq` (`jq -c`, `jq -nc`) — never hand-built JSON strings.
 - restic pattern semantics (used by `--pattern`/`--glob`/`--include`/`--exclude` on `restore.sh`): a pattern containing `/` is path-anchored; a bare pattern (no `/`) matches the filename at any depth. This is restic's own behavior, not something these scripts implement — see `restic backup --help` / `restic restore --help`.
-- Config lives only in `backup.conf`. Two env var overrides exist for testing, not normal use: `RESTIC_BACKUP_CONFIG` (override which file `load_config` reads) and `RESTIC_PASSWORD` (if already set, `get_restic_password` skips the Keychain lookup).
+- Config lives only in `backup.conf`. Two env var overrides exist for testing, not normal use: `TURIYA_CONFIG` (override which file `load_config` reads) and `RESTIC_PASSWORD` (if already set, `get_restic_password` skips the Keychain lookup).
 - Logging lifecycle: every operation calls `init_logging <op>` once at startup, `emit_event <op> "" info run_start` immediately after, and `emit_event <op> "" info|error run_end --str status success|failure` at the very end.
 
 ## How to add a new script
@@ -75,7 +75,7 @@ JSONL envelope, one object per line, written only via `jq -c`:
 ## What not to touch
 
 - `KEYCHAIN_ACCOUNT`/`KEYCHAIN_SERVICE` in `backup.conf` must stay in sync with whatever `install.sh` wrote to Keychain — don't change one without the other (or without re-running `install.sh`).
-- `com.amir.restic-backup.plist.template`'s placeholder tokens (`{{HOME}}`, `{{SCRIPT_DIR}}`, `{{BACKUP_WEEKDAY}}`, `{{BACKUP_HOUR}}`, `{{BACKUP_MINUTE}}`) — `install.sh`'s `sed` render step depends on these exact strings.
+- `com.amir.turiya.plist.template`'s placeholder tokens (`{{HOME}}`, `{{SCRIPT_DIR}}`, `{{BACKUP_WEEKDAY}}`, `{{BACKUP_HOUR}}`, `{{BACKUP_MINUTE}}`) — `install.sh`'s `sed` render step depends on these exact strings.
 - The retention/forget logic in `backup.sh` — it's intentionally simple and matches the documented retention policy; don't add extra forget flags without updating `backup.conf` and `README.md` together.
 - `set -euo pipefail` at the top of every script — don't remove it to silence an error; fix the underlying issue (usually the bash 3.2 empty-array gotcha above).
 - Don't hardcode a path, repo name, or credential anywhere — it belongs in `backup.conf`.

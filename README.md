@@ -1,4 +1,4 @@
-# restic-backup
+# turiya
 
 Automated weekly cloud backups using [Restic](https://restic.net/) and [rclone](https://rclone.org/), managed via macOS `launchd` and `pmset`.
 
@@ -25,7 +25,7 @@ bash backup.sh                   # first real backup
 - `lib/common.sh` / `lib/logging.sh` are shared helpers sourced by every script (config loading, Keychain access, dependency checks, structured logging)
 - `install.sh` reads `backup.conf` and wires everything up (Keychain, rclone check, repo init, launchd, pmset)
 - `backup.sh` is what launchd runs — it reads `backup.conf` at runtime, pulls the password from Keychain, and backs up to all configured repos
-- The generated `.plist` (gitignored) is rendered from `com.amir.restic-backup.plist.template` by `install.sh`
+- The generated `.plist` (gitignored) is rendered from `com.amir.turiya.plist.template` by `install.sh`
 
 ---
 
@@ -144,7 +144,7 @@ Then re-run `install.sh` to apply. It's idempotent — safe to re-run at any tim
 
 ## Logs
 
-All logs live under `LOG_DIR` (default `~/.local/log/restic-backup`), one pair of files per operation plus a combined structured log:
+All logs live under `LOG_DIR` (default `~/.local/log/turiya`), one pair of files per operation plus a combined structured log:
 
 ```
 backup.log      restore.log      status.log      query.log        # human-readable, one per operation
@@ -171,7 +171,7 @@ Removes the launchd job and pmset schedule. Optionally removes the Keychain entr
 ## Repository structure
 
 ```
-restic-backup/
+turiya/
 ├── backup.conf                              # ← all config lives here
 ├── lib/
 │   ├── common.sh                            # config loading, Keychain, dependency checks
@@ -182,7 +182,7 @@ restic-backup/
 ├── status.sh                                # snapshot inspection
 ├── restore.sh                               # guided restore helper
 ├── query.sh                                 # snapshot search (date range, file, version history)
-├── com.amir.restic-backup.plist.template    # launchd plist template
+├── com.amir.turiya.plist.template    # launchd plist template
 ├── CLAUDE.md                                # project conventions for AI-assisted development
 ├── .copilot-instructions.md                 # same, for GitHub Copilot
 ├── .gitignore

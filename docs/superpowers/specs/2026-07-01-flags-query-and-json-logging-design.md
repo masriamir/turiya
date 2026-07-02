@@ -1,11 +1,11 @@
-# restic-backup: targeting flags, query.sh, and structured JSON logging
+# turiya: targeting flags, query.sh, and structured JSON logging
 
 Date: 2026-07-01
 Status: Approved
 
 ## Purpose
 
-Extend the existing restic-backup scaffold (`backup.sh`, `restore.sh`, `status.sh`,
+Extend the existing turiya scaffold (`backup.sh`, `restore.sh`, `status.sh`,
 `install.sh`, `uninstall.sh`, `backup.conf`) with:
 
 1. Consistent `--include` / `--exclude` / `--pattern` / `--glob` targeting flags
@@ -139,9 +139,9 @@ paths instead of a single hardcoded one.
 One JSON object per line, written via `jq -c` (never hand-built strings):
 
 ```json
-{"ts":"2026-07-01T10:00:03-07:00","op":"backup","repo":"rclone:gdrive:restic-backups","level":"info","event":"file","action":"new","path":"/Users/amir/Documents/foo.txt","size":1234}
-{"ts":"2026-07-01T10:04:11-07:00","op":"backup","repo":"rclone:gdrive:restic-backups","level":"info","event":"summary","snapshot_id":"a1b2c3d4","files_new":42,"files_changed":3,"data_added":10485760,"duration_s":247.8}
-{"ts":"2026-07-01T10:04:12-07:00","op":"backup","repo":"rclone:gdrive:restic-backups","level":"error","event":"error","message":"repository lock failed"}
+{"ts":"2026-07-01T10:00:03-07:00","op":"backup","repo":"rclone:gdrive:turiya-backups","level":"info","event":"file","action":"new","path":"/Users/amir/Documents/foo.txt","size":1234}
+{"ts":"2026-07-01T10:04:11-07:00","op":"backup","repo":"rclone:gdrive:turiya-backups","level":"info","event":"summary","snapshot_id":"a1b2c3d4","files_new":42,"files_changed":3,"data_added":10485760,"duration_s":247.8}
+{"ts":"2026-07-01T10:04:12-07:00","op":"backup","repo":"rclone:gdrive:turiya-backups","level":"error","event":"error","message":"repository lock failed"}
 ```
 
 Fields:
@@ -186,7 +186,7 @@ variables needed).
   pattern semantics), how to add a new script (dependency check block,
   Keychain retrieval, log wiring, argument parsing shape), the JSONL logging
   schema (as above), and an explicit "what not to touch" section (Keychain
-  service/account names, `com.amir.restic-backup.plist.template` structure,
+  service/account names, `com.amir.turiya.plist.template` structure,
   `set -euo pipefail`, not hardcoding values that belong in `backup.conf`).
 - **`.copilot-instructions.md`**: same content, restructured into Copilot's
   expected instructions format.
@@ -200,7 +200,7 @@ variables needed).
 - `install.sh` / `uninstall.sh`: only change is adding `jq` to the dependency
   check in `install.sh`. Log cleanup in `uninstall.sh` already
   `rm -rf`s the whole `LOG_DIR`, so no change needed there.
-- `com.amir.restic-backup.plist.template`: untouched.
+- `com.amir.turiya.plist.template`: untouched.
 - Retention/forget logic in `backup.sh`: untouched.
 - No new runtime dependency beyond `jq` (already present on this machine).
 

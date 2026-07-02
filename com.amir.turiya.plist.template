@@ -4,7 +4,7 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.amir.restic-backup</string>
+    <string>com.amir.turiya</string>
 
     <key>ProgramArguments</key>
     <array>
@@ -28,10 +28,10 @@
     <false/>
 
     <key>StandardOutPath</key>
-    <string>{{HOME}}/.local/log/restic-backup/launchd.log</string>
+    <string>{{HOME}}/.local/log/turiya/launchd.log</string>
 
     <key>StandardErrorPath</key>
-    <string>{{HOME}}/.local/log/restic-backup/launchd-err.log</string>
+    <string>{{HOME}}/.local/log/turiya/launchd-err.log</string>
 
     <!--
         Homebrew Intel binaries live in /usr/local/bin.

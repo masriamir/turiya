@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Rewrite the restic-backup bash tool as a library-first Python 3.14 package (`resticbackup`) at feature parity with v1.0.0, folding in items 2 (de-hardcode name), 10 (CLI UX), and 11 (flexible scheduling).
+**Goal:** Rewrite the turiya bash tool as a library-first Python 3.14 package (`turiya`) at feature parity with v1.0.0, folding in items 2 (de-hardcode name), 10 (CLI UX), and 11 (flexible scheduling).
 
-**Architecture:** A layered package under `src/resticbackup/`: low-level modules (`config`, `errors`, `keychain`, `restic`, `rclone`, `logging`, `scheduling`) with a single clear responsibility each, an `operations/` layer that contains the backup/restore/status/query/setup logic and emits structured events, and a thin Typer `cli` on top. The future read-only dashboard imports `operations` + `config` directly, never `cli`.
+**Architecture:** A layered package under `src/turiya/`: low-level modules (`config`, `errors`, `keychain`, `restic`, `rclone`, `logging`, `scheduling`) with a single clear responsibility each, an `operations/` layer that contains the backup/restore/status/query/setup logic and emits structured events, and a thin Typer `cli` on top. The future read-only dashboard imports `operations` + `config` directly, never `cli`.
 
 **Tech Stack:** Python 3.14, uv (env/lock), Typer (CLI), pydantic v2 (config), pytest (tests), ruff (lint+format), mypy + ty (type checks). restic/rclone/security invoked via `subprocess`. No `jq`.
 
@@ -13,7 +13,7 @@
 - Python **3.14** (`requires-python = ">=3.14"`); uv manages the interpreter and `uv.lock`.
 - All tooling config in `pyproject.toml` (`[tool.ruff]`, `[tool.mypy]`, `[tool.ty]`, `[tool.pytest.ini_options]`). Runtime config is TOML.
 - Runtime dependencies limited to `typer` and `pydantic` (v2). Everything else stdlib. Do NOT add `jq`, `jinja2`, `keyring`, or a TOML writer.
-- Config read-only via stdlib `tomllib`. Config location: `~/.config/restic-backup/config.toml`, overridable via `RESTIC_BACKUP_CONFIG`.
+- Config read-only via stdlib `tomllib`. Config location: `~/.config/turiya/config.toml`, overridable via `TURIYA_CONFIG`.
 - `RESTIC_PASSWORD` in the environment short-circuits the Keychain lookup (test hook).
 - restic invoked with `--json --verbose=2` for streaming ops; **stderr is always captured and merged** — restic writes fatal errors as `message_type: "exit_error"` JSON to stderr. Never swallow a restic failure.
 - JSONL log schema is **byte-compatible with v1.0.0**: envelope `{ts, op, repo, level, event, ...}`; `repo` is `null` for repo-agnostic events; events ∈ `run_start | file | summary | error | run_end | prune`; files `ops.jsonl` + `<op>.jsonl` + `<op>.log` under the log dir; size-rotated at `max_bytes`; `json_per_file=false` suppresses only `file` events.
@@ -27,16 +27,16 @@
 ### Task 1: Project scaffolding & toolchain
 
 **Files:**
-- Create: `pyproject.toml`, `src/resticbackup/__init__.py`, `src/resticbackup/py.typed`, `tests/__init__.py`, `tests/test_smoke.py`
+- Create: `pyproject.toml`, `src/turiya/__init__.py`, `src/turiya/py.typed`, `tests/__init__.py`, `tests/test_smoke.py`
 - Create: `.gitignore` additions (`.venv/`, `__pycache__/`, `*.pyc`, `.pytest_cache/`, `.mypy_cache/`, `.ruff_cache/`, `dist/`)
 
 **Interfaces:**
-- Produces: an installable `resticbackup` package importable as `import resticbackup`; `uv run` toolchain for all later tasks.
+- Produces: an installable `turiya` package importable as `import turiya`; `uv run` toolchain for all later tasks.
 
 - [ ] **Step 1: Create the branch**
 
 ```bash
-cd /Users/amir/workspace/restic-backup
+cd /Users/amir/workspace/turiya
 git checkout -b feat/python-migration
 ```
 
@@ -44,7 +44,7 @@ git checkout -b feat/python-migration
 
 ```toml
 [project]
-name = "resticbackup"
+name = "turiya"
 version = "2.0.0"
 description = "Automated encrypted multi-cloud backups via restic + rclone on macOS"
 requires-python = ">=3.14"
@@ -54,14 +54,14 @@ dependencies = [
 ]
 
 [project.scripts]
-restic-backup = "resticbackup.cli:app"
+turiya = "turiya.cli:app"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/resticbackup"]
+packages = ["src/turiya"]
 
 [dependency-groups]
 dev = ["pytest>=8", "mypy>=1.10", "ty>=0.0.1", "ruff>=0.5"]
@@ -88,14 +88,14 @@ addopts = "-v"
 
 - [ ] **Step 3: Create package skeleton**
 
-`src/resticbackup/__init__.py`:
+`src/turiya/__init__.py`:
 ```python
-"""restic-backup: automated encrypted multi-cloud backups via restic + rclone."""
+"""turiya: automated encrypted multi-cloud backups via restic + rclone."""
 
 __version__ = "2.0.0"
 ```
 
-`src/resticbackup/py.typed`: (empty file — PEP 561 marker)
+`src/turiya/py.typed`: (empty file — PEP 561 marker)
 
 `tests/__init__.py`: (empty file)
 
@@ -103,11 +103,11 @@ __version__ = "2.0.0"
 
 `tests/test_smoke.py`:
 ```python
-import resticbackup
+import turiya
 
 
 def test_version() -> None:
-    assert resticbackup.__version__ == "2.0.0"
+    assert turiya.__version__ == "2.0.0"
 ```
 
 - [ ] **Step 5: Sync and run the toolchain**
@@ -136,8 +136,8 @@ dist/
 ```
 
 ```bash
-git add pyproject.toml uv.lock src/resticbackup tests .gitignore
-git commit -m "feat: scaffold resticbackup Python package with uv toolchain"
+git add pyproject.toml uv.lock src/turiya tests .gitignore
+git commit -m "feat: scaffold turiya Python package with uv toolchain"
 ```
 
 ---
@@ -145,7 +145,7 @@ git commit -m "feat: scaffold resticbackup Python package with uv toolchain"
 ### Task 2: `errors.py` — exception hierarchy
 
 **Files:**
-- Create: `src/resticbackup/errors.py`, `tests/test_errors.py`
+- Create: `src/turiya/errors.py`, `tests/test_errors.py`
 
 **Interfaces:**
 - Produces: `ResticBackupError` (base), `ConfigError`, `KeychainError`, `ResticError`, `RcloneError`, `SchedulingError` — all accept a message string; used by every later module.
@@ -156,7 +156,7 @@ git commit -m "feat: scaffold resticbackup Python package with uv toolchain"
 ```python
 import pytest
 
-from resticbackup.errors import (
+from turiya.errors import (
     ConfigError,
     KeychainError,
     RcloneError,
@@ -180,16 +180,16 @@ def test_subclasses_of_base(exc: type[ResticBackupError]) -> None:
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest tests/test_errors.py`
-Expected: FAIL (ModuleNotFoundError: resticbackup.errors).
+Expected: FAIL (ModuleNotFoundError: turiya.errors).
 
 - [ ] **Step 3: Implement `errors.py`**
 
 ```python
-"""Typed exception hierarchy for resticbackup."""
+"""Typed exception hierarchy for turiya."""
 
 
 class ResticBackupError(Exception):
-    """Base class for all resticbackup errors."""
+    """Base class for all turiya errors."""
 
 
 class ConfigError(ResticBackupError):
@@ -220,7 +220,7 @@ Expected: PASS; no type or lint errors.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/resticbackup/errors.py tests/test_errors.py
+git add src/turiya/errors.py tests/test_errors.py
 git commit -m "feat: add typed exception hierarchy"
 ```
 
@@ -229,14 +229,14 @@ git commit -m "feat: add typed exception hierarchy"
 ### Task 3: `config.py` — TOML config models, loading, validation
 
 **Files:**
-- Create: `src/resticbackup/config.py`, `tests/test_config.py`, `tests/fixtures/valid_config.toml`
+- Create: `src/turiya/config.py`, `tests/test_config.py`, `tests/fixtures/valid_config.toml`
 
 **Interfaces:**
 - Consumes: `errors.ConfigError`.
 - Produces:
   - Pydantic models: `Schedule(weekday: int | None, hour: int, minute: int)`, `Repo(url: str)`, `Retention(keep_daily/keep_weekly/keep_monthly/keep_yearly: int)`, `Keychain(account: str, service: str)`, `Identity(label: str)`, `Power(wake_offset_minutes: int)`, `LoggingConfig(dir: Path, max_bytes: int, json_per_file: bool)`, `Config(identity, keychain, schedules: list[Schedule], repos: list[Repo], sources: list[Path], excludes: list[str], retention, power, logging)`.
-  - `DEFAULT_CONFIG_PATH: Path` = `~/.config/restic-backup/config.toml` (expanded).
-  - `resolve_config_path(explicit: Path | None) -> Path` — explicit arg, else `$RESTIC_BACKUP_CONFIG`, else `DEFAULT_CONFIG_PATH`.
+  - `DEFAULT_CONFIG_PATH: Path` = `~/.config/turiya/config.toml` (expanded).
+  - `resolve_config_path(explicit: Path | None) -> Path` — explicit arg, else `$TURIYA_CONFIG`, else `DEFAULT_CONFIG_PATH`.
   - `load(path: Path | None = None) -> Config` — resolve, read via `tomllib`, validate; raise `ConfigError` with an actionable message on any failure.
 
 - [ ] **Step 1: Write the fixture**
@@ -244,11 +244,11 @@ git commit -m "feat: add typed exception hierarchy"
 `tests/fixtures/valid_config.toml`:
 ```toml
 [identity]
-label = "com.example.restic-backup"
+label = "com.example.turiya"
 
 [keychain]
 account = "restic"
-service = "restic-backup"
+service = "turiya"
 
 [[schedule]]
 weekday = 0
@@ -259,10 +259,10 @@ minute = 0
 wake_offset_minutes = 5
 
 [[repo]]
-url = "rclone:gdrive:restic-backups"
+url = "rclone:gdrive:turiya-backups"
 
 [[repo]]
-url = "rclone:dropbox:restic-backups"
+url = "rclone:dropbox:turiya-backups"
 
 sources = ["~/Documents", "~/Desktop"]
 excludes = [".DS_Store", "node_modules"]
@@ -274,7 +274,7 @@ keep_monthly = 6
 keep_yearly = 1
 
 [logging]
-dir = "~/.local/log/restic-backup"
+dir = "~/.local/log/turiya"
 max_bytes = 5242880
 json_per_file = true
 ```
@@ -287,19 +287,19 @@ from pathlib import Path
 
 import pytest
 
-from resticbackup import config
-from resticbackup.errors import ConfigError
+from turiya import config
+from turiya.errors import ConfigError
 
 FIXTURE = Path(__file__).parent / "fixtures" / "valid_config.toml"
 
 
 def test_load_valid_config() -> None:
     cfg = config.load(FIXTURE)
-    assert cfg.identity.label == "com.example.restic-backup"
+    assert cfg.identity.label == "com.example.turiya"
     assert cfg.keychain.account == "restic"
     assert [r.url for r in cfg.repos] == [
-        "rclone:gdrive:restic-backups",
-        "rclone:dropbox:restic-backups",
+        "rclone:gdrive:turiya-backups",
+        "rclone:dropbox:turiya-backups",
     ]
     assert len(cfg.schedules) == 1
     assert cfg.schedules[0].hour == 10
@@ -311,13 +311,13 @@ def test_load_valid_config() -> None:
 def test_paths_are_expanded() -> None:
     cfg = config.load(FIXTURE)
     assert cfg.sources[0] == Path.home() / "Documents"
-    assert cfg.logging.dir == Path.home() / ".local/log/restic-backup"
+    assert cfg.logging.dir == Path.home() / ".local/log/turiya"
 
 
 def test_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("RESTIC_BACKUP_CONFIG", str(FIXTURE))
+    monkeypatch.setenv("TURIYA_CONFIG", str(FIXTURE))
     cfg = config.load()
-    assert cfg.identity.label == "com.example.restic-backup"
+    assert cfg.identity.label == "com.example.turiya"
 
 
 def test_missing_file_raises_config_error(tmp_path: Path) -> None:
@@ -365,7 +365,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from .errors import ConfigError
 
-DEFAULT_CONFIG_PATH = Path("~/.config/restic-backup/config.toml").expanduser()
+DEFAULT_CONFIG_PATH = Path("~/.config/turiya/config.toml").expanduser()
 
 
 def _expand(value: str | Path) -> Path:
@@ -435,7 +435,7 @@ class Config(BaseModel):
 def resolve_config_path(explicit: Path | None = None) -> Path:
     if explicit is not None:
         return explicit
-    env = os.environ.get("RESTIC_BACKUP_CONFIG")
+    env = os.environ.get("TURIYA_CONFIG")
     if env:
         return Path(env)
     return DEFAULT_CONFIG_PATH
@@ -464,7 +464,7 @@ Expected: PASS; clean types and lint.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/resticbackup/config.py tests/test_config.py tests/fixtures/valid_config.toml
+git add src/turiya/config.py tests/test_config.py tests/fixtures/valid_config.toml
 git commit -m "feat: add pydantic TOML config loading and validation"
 ```
 
@@ -473,7 +473,7 @@ git commit -m "feat: add pydantic TOML config loading and validation"
 ### Task 4: `keychain.py` — macOS `security` wrapper
 
 **Files:**
-- Create: `src/resticbackup/keychain.py`, `tests/test_keychain.py`
+- Create: `src/turiya/keychain.py`, `tests/test_keychain.py`
 
 **Interfaces:**
 - Consumes: `config.Config`, `errors.KeychainError`.
@@ -491,8 +491,8 @@ from pathlib import Path
 
 import pytest
 
-from resticbackup import config, keychain
-from resticbackup.errors import KeychainError
+from turiya import config, keychain
+from turiya.errors import KeychainError
 
 FIXTURE = Path(__file__).parent / "fixtures" / "valid_config.toml"
 
@@ -575,7 +575,7 @@ def get_password(cfg: Config) -> str:
     if result.returncode != 0:
         raise KeychainError(
             "Could not retrieve the restic password from the Keychain. "
-            "Run `restic-backup setup`, or check keychain.account/keychain.service "
+            "Run `turiya setup`, or check keychain.account/keychain.service "
             f"in the config. (security exit {result.returncode})"
         )
     return result.stdout.strip()
@@ -623,7 +623,7 @@ Expected: PASS; clean.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/resticbackup/keychain.py tests/test_keychain.py
+git add src/turiya/keychain.py tests/test_keychain.py
 git commit -m "feat: add Keychain password wrapper with RESTIC_PASSWORD override"
 ```
 
@@ -632,7 +632,7 @@ git commit -m "feat: add Keychain password wrapper with RESTIC_PASSWORD override
 ### Task 5: `logging.py` — structured JSONL + human logging
 
 **Files:**
-- Create: `src/resticbackup/logging.py`, `tests/test_logging.py`
+- Create: `src/turiya/logging.py`, `tests/test_logging.py`
 
 **Interfaces:**
 - Consumes: `config.LoggingConfig`.
@@ -650,8 +650,8 @@ git commit -m "feat: add Keychain password wrapper with RESTIC_PASSWORD override
 import json
 from pathlib import Path
 
-from resticbackup.config import LoggingConfig
-from resticbackup.logging import StructuredLogger
+from turiya.config import LoggingConfig
+from turiya.logging import StructuredLogger
 
 
 def _logcfg(tmp_path: Path, max_bytes: int = 5_000_000) -> LoggingConfig:
@@ -785,7 +785,7 @@ Expected: PASS; clean.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/resticbackup/logging.py tests/test_logging.py
+git add src/turiya/logging.py tests/test_logging.py
 git commit -m "feat: add structured JSONL and human logging (v1.0.0-compatible schema)"
 ```
 
@@ -794,7 +794,7 @@ git commit -m "feat: add structured JSONL and human logging (v1.0.0-compatible s
 ### Task 6: `restic.py` — subprocess wrapper and event model
 
 **Files:**
-- Create: `src/resticbackup/restic.py`, `tests/test_restic.py`
+- Create: `src/turiya/restic.py`, `tests/test_restic.py`
 
 **Interfaces:**
 - Consumes: `errors.ResticError`.
@@ -808,8 +808,8 @@ git commit -m "feat: add structured JSONL and human logging (v1.0.0-compatible s
 
 `tests/test_restic.py`:
 ```python
-from resticbackup import restic
-from resticbackup.restic import ErrorEvent, FileEvent, SummaryEvent
+from turiya import restic
+from turiya.restic import ErrorEvent, FileEvent, SummaryEvent
 
 
 def test_parse_file_event() -> None:
@@ -987,7 +987,7 @@ Expected: PASS; clean.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/resticbackup/restic.py tests/test_restic.py
+git add src/turiya/restic.py tests/test_restic.py
 git commit -m "feat: add restic subprocess wrapper and typed event parsing"
 ```
 
@@ -996,7 +996,7 @@ git commit -m "feat: add restic subprocess wrapper and typed event parsing"
 ### Task 7: `rclone.py` — remote verification
 
 **Files:**
-- Create: `src/resticbackup/rclone.py`, `tests/test_rclone.py`
+- Create: `src/turiya/rclone.py`, `tests/test_rclone.py`
 
 **Interfaces:**
 - Consumes: `config.Config`, `errors.RcloneError`.
@@ -1014,13 +1014,13 @@ from pathlib import Path
 
 import pytest
 
-from resticbackup import config, rclone
+from turiya import config, rclone
 
 FIXTURE = Path(__file__).parent / "fixtures" / "valid_config.toml"
 
 
 def test_remote_of_extracts_name() -> None:
-    assert rclone.remote_of("rclone:gdrive:restic-backups") == "gdrive"
+    assert rclone.remote_of("rclone:gdrive:turiya-backups") == "gdrive"
     assert rclone.remote_of("/local/path") is None
 
 
@@ -1091,7 +1091,7 @@ Expected: PASS; clean.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/resticbackup/rclone.py tests/test_rclone.py
+git add src/turiya/rclone.py tests/test_rclone.py
 git commit -m "feat: add rclone remote verification"
 ```
 
@@ -1100,7 +1100,7 @@ git commit -m "feat: add rclone remote verification"
 ### Task 8: `scheduling.py` — launchd plist rendering + pmset (items 2 + 11)
 
 **Files:**
-- Create: `src/resticbackup/scheduling.py`, `src/resticbackup/templates/launchd.plist.tmpl`, `tests/test_scheduling.py`
+- Create: `src/turiya/scheduling.py`, `src/turiya/templates/launchd.plist.tmpl`, `tests/test_scheduling.py`
 
 **Interfaces:**
 - Consumes: `config.Config`, `config.Schedule`, `errors.SchedulingError`.
@@ -1112,7 +1112,7 @@ git commit -m "feat: add rclone remote verification"
 
 - [ ] **Step 1: Write the template**
 
-`src/resticbackup/templates/launchd.plist.tmpl`:
+`src/turiya/templates/launchd.plist.tmpl`:
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
@@ -1150,16 +1150,16 @@ $calendar
 ```python
 from pathlib import Path
 
-from resticbackup import config, scheduling
-from resticbackup.config import Schedule
+from turiya import config, scheduling
+from turiya.config import Schedule
 
 FIXTURE = Path(__file__).parent / "fixtures" / "valid_config.toml"
 
 
 def test_plist_label_uniqueness() -> None:
     cfg = config.load(FIXTURE)
-    assert scheduling.plist_label(cfg, 0) == "com.example.restic-backup"
-    assert scheduling.plist_label(cfg, 1) == "com.example.restic-backup.1"
+    assert scheduling.plist_label(cfg, 0) == "com.example.turiya"
+    assert scheduling.plist_label(cfg, 1) == "com.example.turiya.1"
 
 
 def test_render_plist_includes_label_and_schedule() -> None:
@@ -1167,13 +1167,13 @@ def test_render_plist_includes_label_and_schedule() -> None:
     xml = scheduling.render_plist(
         cfg,
         Schedule(weekday=0, hour=10, minute=0),
-        label="com.example.restic-backup",
-        program=["/opt/venv/bin/restic-backup", "backup"],
+        label="com.example.turiya",
+        program=["/opt/venv/bin/turiya", "backup"],
     )
-    assert "<string>com.example.restic-backup</string>" in xml
+    assert "<string>com.example.turiya</string>" in xml
     assert "<key>Weekday</key>" in xml
     assert "<integer>10</integer>" in xml  # hour
-    assert "/opt/venv/bin/restic-backup" in xml
+    assert "/opt/venv/bin/turiya" in xml
 
 
 def test_render_plist_omits_weekday_when_none() -> None:
@@ -1182,7 +1182,7 @@ def test_render_plist_omits_weekday_when_none() -> None:
         cfg,
         Schedule(weekday=None, hour=3, minute=30),
         label="x",
-        program=["restic-backup", "backup"],
+        program=["turiya", "backup"],
     )
     assert "<key>Weekday</key>" not in xml
     assert "<key>Hour</key>" in xml
@@ -1214,7 +1214,7 @@ from .config import Config, Schedule
 from .errors import SchedulingError
 
 _TEMPLATE = Template(
-    (files("resticbackup") / "templates" / "launchd.plist.tmpl").read_text(encoding="utf-8")
+    (files("turiya") / "templates" / "launchd.plist.tmpl").read_text(encoding="utf-8")
 )
 
 
@@ -1283,7 +1283,7 @@ Expected: PASS; clean.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/resticbackup/scheduling.py src/resticbackup/templates/launchd.plist.tmpl tests/test_scheduling.py
+git add src/turiya/scheduling.py src/turiya/templates/launchd.plist.tmpl tests/test_scheduling.py
 git commit -m "feat: add launchd plist rendering and pmset scheduling (items 2 + 11)"
 ```
 
@@ -1298,7 +1298,7 @@ git commit -m "feat: add launchd plist rendering and pmset scheduling (items 2 +
 - Produces pytest fixtures used by all operation integration tests:
   - `restic_repos(tmp_path) -> list[Path]` — creates and `restic init`s two local repos under `tmp_path`, with `RESTIC_PASSWORD=testpass123` set for the session.
   - `source_tree(tmp_path) -> Path` — a fixture directory with `docs/report.txt` and `notes/todo.md`.
-  - `harness_config(tmp_path, restic_repos, source_tree) -> Path` — writes a `config.toml` pointing at the two local repos + the source tree + a log dir under tmp; sets `RESTIC_BACKUP_CONFIG` to it. Returns the config path.
+  - `harness_config(tmp_path, restic_repos, source_tree) -> Path` — writes a `config.toml` pointing at the two local repos + the source tree + a log dir under tmp; sets `TURIYA_CONFIG` to it. Returns the config path.
 
 - [ ] **Step 1: Write `conftest.py`**
 
@@ -1343,8 +1343,8 @@ def harness_config(
     repo_tables = "\n".join(f'[[repo]]\nurl = "{r}"\n' for r in restic_repos)
     cfg = tmp_path / "config.toml"
     cfg.write_text(
-        '[identity]\nlabel = "com.test.restic-backup"\n'
-        '[keychain]\naccount = "restic-test"\nservice = "restic-backup-test"\n'
+        '[identity]\nlabel = "com.test.turiya"\n'
+        '[keychain]\naccount = "restic-test"\nservice = "turiya-test"\n'
         "[[schedule]]\nweekday = 0\nhour = 10\nminute = 0\n"
         "[power]\nwake_offset_minutes = 5\n"
         f"{repo_tables}"
@@ -1352,7 +1352,7 @@ def harness_config(
         "[retention]\nkeep_daily = 7\nkeep_weekly = 4\nkeep_monthly = 6\nkeep_yearly = 1\n"
         f'[logging]\ndir = "{log_dir}"\nmax_bytes = 5242880\njson_per_file = true\n'
     )
-    monkeypatch.setenv("RESTIC_BACKUP_CONFIG", str(cfg))
+    monkeypatch.setenv("TURIYA_CONFIG", str(cfg))
     monkeypatch.setenv("RESTIC_PASSWORD", PASSWORD)
     yield cfg
 ```
@@ -1363,7 +1363,7 @@ def harness_config(
 ```python
 from pathlib import Path
 
-from resticbackup import config, restic
+from turiya import config, restic
 
 
 def test_harness_repos_are_empty(harness_config: Path) -> None:
@@ -1392,7 +1392,7 @@ git commit -m "test: add integration harness fixtures over real local restic rep
 ### Task 10: `operations/backup.py`
 
 **Files:**
-- Create: `src/resticbackup/operations/__init__.py`, `src/resticbackup/operations/backup.py`, `tests/integration/test_backup.py`
+- Create: `src/turiya/operations/__init__.py`, `src/turiya/operations/backup.py`, `tests/integration/test_backup.py`
 
 **Interfaces:**
 - Consumes: `config.Config`, `keychain.get_password`, `restic.stream`, `restic.run_json`, `logging.StructuredLogger`.
@@ -1407,8 +1407,8 @@ git commit -m "test: add integration harness fixtures over real local restic rep
 import json
 from pathlib import Path
 
-from resticbackup import config, restic
-from resticbackup.operations import backup
+from turiya import config, restic
+from turiya.operations import backup
 
 
 def test_plain_backup_creates_snapshot(harness_config: Path) -> None:
@@ -1445,7 +1445,7 @@ Expected: FAIL (module not defined).
 
 - [ ] **Step 3: Implement `operations/backup.py`**
 
-`src/resticbackup/operations/__init__.py`: (empty file)
+`src/turiya/operations/__init__.py`: (empty file)
 
 ```python
 """Backup operation: port of v1.0.0 backup.sh."""
@@ -1562,7 +1562,7 @@ Expected: PASS; clean.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/resticbackup/operations tests/integration/test_backup.py
+git add src/turiya/operations tests/integration/test_backup.py
 git commit -m "feat: add backup operation (port of backup.sh)"
 ```
 
@@ -1571,7 +1571,7 @@ git commit -m "feat: add backup operation (port of backup.sh)"
 ### Task 11: `operations/restore.py`
 
 **Files:**
-- Create: `src/resticbackup/operations/restore.py`, `tests/integration/test_restore.py`
+- Create: `src/turiya/operations/restore.py`, `tests/integration/test_restore.py`
 
 **Interfaces:**
 - Consumes: `config.Config`, `keychain.get_password`, `restic.stream`, `logging.StructuredLogger`.
@@ -1583,8 +1583,8 @@ git commit -m "feat: add backup operation (port of backup.sh)"
 ```python
 from pathlib import Path
 
-from resticbackup import config
-from resticbackup.operations import backup, restore
+from turiya import config
+from turiya.operations import backup, restore
 
 
 def test_full_restore(harness_config: Path, tmp_path: Path) -> None:
@@ -1693,7 +1693,7 @@ Expected: PASS; clean.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/resticbackup/operations/restore.py tests/integration/test_restore.py
+git add src/turiya/operations/restore.py tests/integration/test_restore.py
 git commit -m "feat: add restore operation (port of restore.sh)"
 ```
 
@@ -1702,7 +1702,7 @@ git commit -m "feat: add restore operation (port of restore.sh)"
 ### Task 12: `operations/status.py`
 
 **Files:**
-- Create: `src/resticbackup/operations/status.py`, `tests/integration/test_status.py`
+- Create: `src/turiya/operations/status.py`, `tests/integration/test_status.py`
 
 **Interfaces:**
 - Consumes: `config.Config`, `keychain.get_password`, `restic.run_json`, `logging.StructuredLogger`.
@@ -1716,8 +1716,8 @@ git commit -m "feat: add restore operation (port of restore.sh)"
 ```python
 from pathlib import Path
 
-from resticbackup import config
-from resticbackup.operations import backup, status
+from turiya import config
+from turiya.operations import backup, status
 
 
 def test_status_all_lists_snapshots(harness_config: Path, capsys) -> None:  # type: ignore[no-untyped-def]
@@ -1841,7 +1841,7 @@ Expected: PASS; clean.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/resticbackup/operations/status.py tests/integration/test_status.py
+git add src/turiya/operations/status.py tests/integration/test_status.py
 git commit -m "feat: add status operation (port of status.sh)"
 ```
 
@@ -1850,7 +1850,7 @@ git commit -m "feat: add status operation (port of status.sh)"
 ### Task 13: `operations/query.py`
 
 **Files:**
-- Create: `src/resticbackup/operations/query.py`, `tests/integration/test_query.py`
+- Create: `src/turiya/operations/query.py`, `tests/integration/test_query.py`
 
 **Interfaces:**
 - Consumes: `config.Config`, `keychain.get_password`, `restic.run_json`, `logging.StructuredLogger`, `restore.resolve_repo`.
@@ -1864,9 +1864,9 @@ from pathlib import Path
 
 import pytest
 
-from resticbackup import config
-from resticbackup.errors import ConfigError
-from resticbackup.operations import backup, query
+from turiya import config
+from turiya.errors import ConfigError
+from turiya.operations import backup, query
 
 
 def test_find_locates_file(harness_config: Path, capsys) -> None:  # type: ignore[no-untyped-def]
@@ -1991,7 +1991,7 @@ Expected: PASS; clean.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/resticbackup/operations/query.py tests/integration/test_query.py
+git add src/turiya/operations/query.py tests/integration/test_query.py
 git commit -m "feat: add query operation (port of query.sh)"
 ```
 
@@ -2000,12 +2000,12 @@ git commit -m "feat: add query operation (port of query.sh)"
 ### Task 14: `operations/setup.py` — setup/teardown wiring
 
 **Files:**
-- Create: `src/resticbackup/operations/setup.py`, `tests/test_setup.py`
+- Create: `src/turiya/operations/setup.py`, `tests/test_setup.py`
 
 **Interfaces:**
 - Consumes: `config.Config`, `keychain`, `rclone`, `restic.run_json`, `scheduling`, `logging.StructuredLogger`.
 - Produces:
-  - `default_program() -> list[str]` — the argv launchd should invoke: `[sys.executable, "-m", "resticbackup", "backup"]` (module entry, robust regardless of console-script path).
+  - `default_program() -> list[str]` — the argv launchd should invoke: `[sys.executable, "-m", "turiya", "backup"]` (module entry, robust regardless of console-script path).
   - `run(cfg: Config, *, password: str | None = None, program: list[str] | None = None) -> None` — store password (if given) via `keychain.set_password`; verify `rclone.missing_remotes` is empty (raise `RcloneError` listing missing); `restic init` any uninitialized repo (via `run_json(..., ["snapshots"])` probe, then `restic -r url init` on failure); `scheduling.install`. 
   - `teardown(cfg: Config) -> None` — `scheduling.uninstall`; leave Keychain + cloud repos intact (matching v1.0.0 uninstall's safe default).
 - Unit-test the pure `default_program` and the repo-init decision logic with `restic`/`scheduling` calls monkeypatched; do not perform real launchd/pmset changes in tests.
@@ -2017,8 +2017,8 @@ git commit -m "feat: add query operation (port of query.sh)"
 import sys
 from pathlib import Path
 
-from resticbackup import config
-from resticbackup.operations import setup
+from turiya import config
+from turiya.operations import setup
 
 FIXTURE = Path(__file__).parent / "fixtures" / "valid_config.toml"
 
@@ -2026,16 +2026,16 @@ FIXTURE = Path(__file__).parent / "fixtures" / "valid_config.toml"
 def test_default_program_uses_module_entry() -> None:
     prog = setup.default_program()
     assert prog[0] == sys.executable
-    assert prog[1:3] == ["-m", "resticbackup"]
+    assert prog[1:3] == ["-m", "turiya"]
     assert prog[-1] == "backup"
 
 
 def test_setup_raises_on_missing_remotes(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     cfg = config.load(FIXTURE)
-    monkeypatch.setattr("resticbackup.operations.setup.rclone.missing_remotes", lambda c: ["dropbox"])
+    monkeypatch.setattr("turiya.operations.setup.rclone.missing_remotes", lambda c: ["dropbox"])
     import pytest
 
-    from resticbackup.errors import RcloneError
+    from turiya.errors import RcloneError
 
     with pytest.raises(RcloneError, match="dropbox"):
         setup.run(cfg, program=["x"])
@@ -2063,7 +2063,7 @@ from ..restic import run_json
 
 
 def default_program() -> list[str]:
-    return [sys.executable, "-m", "resticbackup", "backup"]
+    return [sys.executable, "-m", "turiya", "backup"]
 
 
 def _repo_initialized(url: str, password: str) -> bool:
@@ -2109,7 +2109,7 @@ Expected: PASS; clean.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/resticbackup/operations/setup.py tests/test_setup.py
+git add src/turiya/operations/setup.py tests/test_setup.py
 git commit -m "feat: add setup/teardown wiring (port of install.sh/uninstall.sh)"
 ```
 
@@ -2118,11 +2118,11 @@ git commit -m "feat: add setup/teardown wiring (port of install.sh/uninstall.sh)
 ### Task 15: `cli.py` — Typer application (+ `__main__`)
 
 **Files:**
-- Create: `src/resticbackup/cli.py`, `src/resticbackup/__main__.py`, `tests/test_cli.py`
+- Create: `src/turiya/cli.py`, `src/turiya/__main__.py`, `tests/test_cli.py`
 
 **Interfaces:**
 - Consumes: every `operations.*` module, `config.load`, `errors.ResticBackupError`.
-- Produces: a Typer `app` with subcommands `backup`, `restore`, `status`, `query`, `setup`, `teardown`. Each loads config via `config.load()`, calls the matching operation, maps a `False`/exception to a non-zero exit (`typer.Exit(code=1)`), and prints `ResticBackupError` messages cleanly. `__main__.py` calls `app()` so `python -m resticbackup` works (used by launchd).
+- Produces: a Typer `app` with subcommands `backup`, `restore`, `status`, `query`, `setup`, `teardown`. Each loads config via `config.load()`, calls the matching operation, maps a `False`/exception to a non-zero exit (`typer.Exit(code=1)`), and prints `ResticBackupError` messages cleanly. `__main__.py` calls `app()` so `python -m turiya` works (used by launchd).
 
 - [ ] **Step 1: Write the tests**
 
@@ -2132,7 +2132,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from resticbackup.cli import app
+from turiya.cli import app
 
 runner = CliRunner()
 
@@ -2161,7 +2161,7 @@ Expected: FAIL (module not defined).
 
 - [ ] **Step 3: Implement `cli.py` and `__main__.py`**
 
-`src/resticbackup/cli.py`:
+`src/turiya/cli.py`:
 ```python
 """Typer CLI — thin layer mapping subcommands to operations."""
 
@@ -2177,7 +2177,7 @@ from .operations import restore as restore_op
 from .operations import setup as setup_op
 from .operations import status as status_op
 
-app = typer.Typer(add_completion=False, help="restic-backup: encrypted multi-cloud backups.")
+app = typer.Typer(add_completion=False, help="turiya: encrypted multi-cloud backups.")
 
 
 def _load() -> config.Config:
@@ -2259,7 +2259,7 @@ def teardown() -> None:
     setup_op.teardown(_load())
 ```
 
-`src/resticbackup/__main__.py`:
+`src/turiya/__main__.py`:
 ```python
 from .cli import app
 
@@ -2275,7 +2275,7 @@ Expected: PASS; clean.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/resticbackup/cli.py src/resticbackup/__main__.py tests/test_cli.py
+git add src/turiya/cli.py src/turiya/__main__.py tests/test_cli.py
 git commit -m "feat: add Typer CLI wiring all operations"
 ```
 
@@ -2284,7 +2284,7 @@ git commit -m "feat: add Typer CLI wiring all operations"
 ### Task 16: Full-suite gate, docs, and cutover to v2.0.0
 
 **Files:**
-- Delete: `backup.sh`, `restore.sh`, `status.sh`, `query.sh`, `install.sh`, `uninstall.sh`, `lib/common.sh`, `lib/logging.sh`, `backup.conf`, `com.amir.restic-backup.plist.template`
+- Delete: `backup.sh`, `restore.sh`, `status.sh`, `query.sh`, `install.sh`, `uninstall.sh`, `lib/common.sh`, `lib/logging.sh`, `backup.conf`, `com.amir.turiya.plist.template`
 - Create: `config.example.toml`
 - Modify: `README.md`, `CHANGELOG.md`, `CLAUDE.md`, `.copilot-instructions.md`
 
@@ -2302,19 +2302,19 @@ Expected: all tests pass; ruff, mypy, ty clean. Do not proceed to deletion until
 
 - [ ] **Step 2: Add `config.example.toml`**
 
-Create `config.example.toml` at the repo root with the exact schema from the design spec's section 3 (identity, keychain, one `[[schedule]]`, power, two example `[[repo]]` entries, sources, excludes, retention, logging), for users to copy to `~/.config/restic-backup/config.toml`.
+Create `config.example.toml` at the repo root with the exact schema from the design spec's section 3 (identity, keychain, one `[[schedule]]`, power, two example `[[repo]]` entries, sources, excludes, retention, logging), for users to copy to `~/.config/turiya/config.toml`.
 
 - [ ] **Step 3: Remove the bash implementation**
 
 ```bash
 git rm backup.sh restore.sh status.sh query.sh install.sh uninstall.sh \
-       lib/common.sh lib/logging.sh backup.conf com.amir.restic-backup.plist.template
+       lib/common.sh lib/logging.sh backup.conf com.amir.turiya.plist.template
 ```
 (They remain recoverable at the `v1.0.0` tag.)
 
 - [ ] **Step 4: Rewrite `README.md`**
 
-Replace the bash usage throughout with: the bootstrap (`brew install restic rclone`, `uv tool install .` or `uv sync`), first-run (`restic-backup setup`), and the Python CLI reference for `backup`/`restore`/`status`/`query`/`setup`/`teardown` with their flags. Update the repository-structure section to the `src/resticbackup/` layout. Remove all `jq` references. State config lives at `~/.config/restic-backup/config.toml` (copy from `config.example.toml`).
+Replace the bash usage throughout with: the bootstrap (`brew install restic rclone`, `uv tool install .` or `uv sync`), first-run (`turiya setup`), and the Python CLI reference for `backup`/`restore`/`status`/`query`/`setup`/`teardown` with their flags. Update the repository-structure section to the `src/turiya/` layout. Remove all `jq` references. State config lives at `~/.config/turiya/config.toml` (copy from `config.example.toml`).
 
 - [ ] **Step 5: Update `CLAUDE.md` and `.copilot-instructions.md`**
 
@@ -2328,7 +2328,7 @@ Add:
 
 ### Changed
 - Rewrote the entire tool from bash to a library-first Python 3.14 package
-  (`resticbackup`): layered core (config/keychain/restic/rclone/logging/
+  (`turiya`): layered core (config/keychain/restic/rclone/logging/
   scheduling + operations) with a thin Typer CLI. Behavior parity with 1.0.0.
 
 ### Added

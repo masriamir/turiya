@@ -21,7 +21,7 @@
 - All JSON is built via `jq -c`/`jq -nc`, never hand-built strings.
 - All config lives in `backup.conf`; no hardcoded paths/repo names/credentials in any script.
 - Restic version on this machine is 0.19.0 — confirmed JSON shapes empirically (see task notes below); do not assume older-restic shapes.
-- Test isolation: two testing-only env var hooks are added to `lib/common.sh` — `RESTIC_BACKUP_CONFIG` (override which config file `load_config` reads) and honoring a pre-set `RESTIC_PASSWORD` (skips Keychain lookup). These let every task's tests run against a local scratch restic repo without touching the user's real `backup.conf`, real cloud repos, or real Keychain entry.
+- Test isolation: two testing-only env var hooks are added to `lib/common.sh` — `TURIYA_CONFIG` (override which config file `load_config` reads) and honoring a pre-set `RESTIC_PASSWORD` (skips Keychain lookup). These let every task's tests run against a local scratch restic repo without touching the user's real `backup.conf`, real cloud repos, or real Keychain entry.
 - Spec reference: `docs/superpowers/specs/2026-07-01-flags-query-and-json-logging-design.md`.
 
 ---
@@ -35,7 +35,7 @@
 - Modify: `.gitignore` (add `.test-harness/`)
 
 **Interfaces:**
-- Produces: a local-backend restic repo at `.test-harness/repo-a` (and a second, uninitialized-until-needed `.test-harness/repo-b`) that later tasks' tests read/write against, using `RESTIC_PASSWORD=testpass123` and `RESTIC_BACKUP_CONFIG=<repo>/.test-harness/backup.conf`.
+- Produces: a local-backend restic repo at `.test-harness/repo-a` (and a second, uninitialized-until-needed `.test-harness/repo-b`) that later tasks' tests read/write against, using `RESTIC_PASSWORD=testpass123` and `TURIYA_CONFIG=<repo>/.test-harness/backup.conf`.
 
 - [ ] **Step 1: Add the harness directory to .gitignore**
 
@@ -59,23 +59,23 @@ Create `.test-harness/backup.conf` with this exact content (absolute paths, sinc
 
 ```bash
 # Test harness config — never used by real backup.sh runs, only via
-# RESTIC_BACKUP_CONFIG override in test steps. Not committed to git.
+# TURIYA_CONFIG override in test steps. Not committed to git.
 BACKUP_WEEKDAY=0
 BACKUP_HOUR=10
 BACKUP_MINUTE=0
 PMSET_WAKE_OFFSET_MINUTES=5
 
 KEYCHAIN_ACCOUNT="restic-test"
-KEYCHAIN_SERVICE="restic-backup-test"
+KEYCHAIN_SERVICE="turiya-test"
 
 REPOS=(
-    "/Users/amir/workspace/restic-backup/.test-harness/repo-a"
-    "/Users/amir/workspace/restic-backup/.test-harness/repo-b"
+    "/Users/amir/workspace/turiya/.test-harness/repo-a"
+    "/Users/amir/workspace/turiya/.test-harness/repo-b"
 )
 
 SOURCES=(
-    "/Users/amir/workspace/restic-backup/.test-harness/src/docs"
-    "/Users/amir/workspace/restic-backup/.test-harness/src/notes"
+    "/Users/amir/workspace/turiya/.test-harness/src/docs"
+    "/Users/amir/workspace/turiya/.test-harness/src/notes"
 )
 
 EXCLUDES=(
@@ -87,7 +87,7 @@ RETENTION_KEEP_WEEKLY=4
 RETENTION_KEEP_MONTHLY=6
 RETENTION_KEEP_YEARLY=1
 
-LOG_DIR="/Users/amir/workspace/restic-backup/.test-harness/logs"
+LOG_DIR="/Users/amir/workspace/turiya/.test-harness/logs"
 LOG_MAX_BYTES=5242880
 LOG_JSON_PER_FILE=true
 ```
@@ -101,7 +101,7 @@ restic -r .test-harness/repo-b init
 restic -r .test-harness/repo-a snapshots --json
 ```
 
-Expected: both `init` commands print "created restic repository ..."; the final `snapshots --json` prints `[]` (empty — nothing backed up yet). This confirms the harness repos exist independently of the real `backup.conf`'s `REPOS` (Google Drive/Dropbox/pCloud) and the real Keychain entry (`restic`/`restic-backup`), which are never touched.
+Expected: both `init` commands print "created restic repository ..."; the final `snapshots --json` prints `[]` (empty — nothing backed up yet). This confirms the harness repos exist independently of the real `backup.conf`'s `REPOS` (Google Drive/Dropbox/pCloud) and the real Keychain entry (`restic`/`turiya`), which are never touched.
 
 - [ ] **Step 5: Commit**
 
@@ -142,7 +142,7 @@ Create `lib/common.sh`:
 
 load_config() {
     local script_dir="$1"
-    CONFIG_FILE="${RESTIC_BACKUP_CONFIG:-$script_dir/backup.conf}"
+    CONFIG_FILE="${TURIYA_CONFIG:-$script_dir/backup.conf}"
 
     if [[ ! -f "$CONFIG_FILE" ]]; then
         echo "ERROR: config file not found at $CONFIG_FILE" >&2
@@ -204,16 +204,16 @@ resolve_repo() {
 ```bash
 bash -c '
   source lib/common.sh
-  load_config "/Users/amir/workspace/restic-backup"
+  load_config "/Users/amir/workspace/turiya"
 ' 2>&1 | head -5
 ```
 
-Expected: with the real `.test-harness/backup.conf` not being the default, this should actually load the *real* `backup.conf` (since `RESTIC_BACKUP_CONFIG` isn't set) — expect no output and exit 0, proving `load_config` finds and sources the real config without error. Now verify the override:
+Expected: with the real `.test-harness/backup.conf` not being the default, this should actually load the *real* `backup.conf` (since `TURIYA_CONFIG` isn't set) — expect no output and exit 0, proving `load_config` finds and sources the real config without error. Now verify the override:
 
 ```bash
-RESTIC_BACKUP_CONFIG="/Users/amir/workspace/restic-backup/.test-harness/backup.conf" bash -c '
+TURIYA_CONFIG="/Users/amir/workspace/turiya/.test-harness/backup.conf" bash -c '
   source lib/common.sh
-  load_config "/Users/amir/workspace/restic-backup"
+  load_config "/Users/amir/workspace/turiya"
   echo "REPOS[0]=${REPOS[0]}"
   check_dependencies bash jq
   echo "deps ok"
@@ -224,10 +224,10 @@ RESTIC_BACKUP_CONFIG="/Users/amir/workspace/restic-backup/.test-harness/backup.c
 
 Expected output:
 ```
-REPOS[0]=/Users/amir/workspace/restic-backup/.test-harness/repo-a
+REPOS[0]=/Users/amir/workspace/turiya/.test-harness/repo-a
 deps ok
-resolved=/Users/amir/workspace/restic-backup/.test-harness/repo-a
-resolved-b=/Users/amir/workspace/restic-backup/.test-harness/repo-b
+resolved=/Users/amir/workspace/turiya/.test-harness/repo-a
+resolved-b=/Users/amir/workspace/turiya/.test-harness/repo-b
 ```
 
 - [ ] **Step 3: Commit**
@@ -368,16 +368,16 @@ Using the Task 1 harness:
 
 ```bash
 export RESTIC_PASSWORD=testpass123
-export RESTIC_BACKUP_CONFIG="/Users/amir/workspace/restic-backup/.test-harness/backup.conf"
+export TURIYA_CONFIG="/Users/amir/workspace/turiya/.test-harness/backup.conf"
 bash -c '
   source lib/common.sh
   source lib/logging.sh
-  load_config "/Users/amir/workspace/restic-backup"
+  load_config "/Users/amir/workspace/turiya"
   init_logging testop
   emit_event testop "" info run_start
-  restic -r "/Users/amir/workspace/restic-backup/.test-harness/repo-a" backup \
-    "/Users/amir/workspace/restic-backup/.test-harness/src/docs" \
-    --json --verbose=2 | process_restic_json_stream testop "/Users/amir/workspace/restic-backup/.test-harness/repo-a"
+  restic -r "/Users/amir/workspace/turiya/.test-harness/repo-a" backup \
+    "/Users/amir/workspace/turiya/.test-harness/src/docs" \
+    --json --verbose=2 | process_restic_json_stream testop "/Users/amir/workspace/turiya/.test-harness/repo-a"
   emit_event testop "" info run_end --str status success
   echo "--- ops.jsonl ---"
   cat "$LOG_DIR/ops.jsonl"
@@ -389,7 +389,7 @@ bash -c '
 Expected: prints one JSON object per line (run_start, file events for `report.txt` and the `docs` dir, a summary event, run_end) and the final `jq -c . | wc -l` count matches the number of lines with no parse errors. Also confirm the human log:
 
 ```bash
-cat "/Users/amir/workspace/restic-backup/.test-harness/logs/testop.log"
+cat "/Users/amir/workspace/turiya/.test-harness/logs/testop.log"
 ```
 
 Expected: readable timestamped lines, one per file plus a summary line, no raw JSON.
@@ -397,9 +397,9 @@ Expected: readable timestamped lines, one per file plus a summary line, no raw J
 Clean up the test-only log files (not part of the harness's permanent fixtures, and not gitignored-relevant since `.test-harness/` is already ignored — just tidy):
 
 ```bash
-rm -f "/Users/amir/workspace/restic-backup/.test-harness/logs/testop.log" \
-      "/Users/amir/workspace/restic-backup/.test-harness/logs/testop.jsonl" \
-      "/Users/amir/workspace/restic-backup/.test-harness/logs/ops.jsonl"
+rm -f "/Users/amir/workspace/turiya/.test-harness/logs/testop.log" \
+      "/Users/amir/workspace/turiya/.test-harness/logs/testop.jsonl" \
+      "/Users/amir/workspace/turiya/.test-harness/logs/ops.jsonl"
 ```
 
 - [ ] **Step 3: Commit**
@@ -424,14 +424,14 @@ git commit -m "feat: add lib/logging.sh for structured JSONL and human-readable 
 Replace the file's opening comment block:
 ```bash
 # =============================================================================
-# restic-backup configuration
+# turiya configuration
 # =============================================================================
 # All user-facing settings live here. backup.sh, restore.sh, status.sh,
 # query.sh, and install.sh source this file — you should rarely need to
 # edit anything else.
 #
 # Testing hooks (not used in normal operation):
-#   RESTIC_BACKUP_CONFIG  — override which config file is sourced
+#   TURIYA_CONFIG  — override which config file is sourced
 #   RESTIC_PASSWORD       — if already set in the environment, skips the
 #                           Keychain lookup entirely
 # =============================================================================
@@ -444,7 +444,7 @@ Replace:
 # -----------------------------------------------------------------------------
 # Logging
 # -----------------------------------------------------------------------------
-LOG_DIR="$HOME/.local/log/restic-backup"
+LOG_DIR="$HOME/.local/log/turiya"
 LOG_FILE="$LOG_DIR/backup.log"
 
 # Max log size in bytes before rotation (default: 5MB)
@@ -462,7 +462,7 @@ With:
 #   <op>.log     — human-readable (backup.log, restore.log, status.log, query.log)
 #   <op>.jsonl   — structured JSONL for that operation only
 #   ops.jsonl    — combined structured JSONL across all operations
-LOG_DIR="$HOME/.local/log/restic-backup"
+LOG_DIR="$HOME/.local/log/turiya"
 
 # Max size in bytes before a log file is rotated (default: 5MB). Applies to
 # every .log and .jsonl file under LOG_DIR.
@@ -484,7 +484,7 @@ bash -c 'source backup.conf; echo "LOG_JSON_PER_FILE=$LOG_JSON_PER_FILE"; echo "
 Expected:
 ```
 LOG_JSON_PER_FILE=true
-LOG_DIR=/Users/amir/.local/log/restic-backup
+LOG_DIR=/Users/amir/.local/log/turiya
 ```
 
 - [ ] **Step 4: Commit**
@@ -711,7 +711,7 @@ Expected: no output, exit 0.
 
 ```bash
 export RESTIC_PASSWORD=testpass123
-export RESTIC_BACKUP_CONFIG="/Users/amir/workspace/restic-backup/.test-harness/backup.conf"
+export TURIYA_CONFIG="/Users/amir/workspace/turiya/.test-harness/backup.conf"
 
 # Plain run: backs up both SOURCES to both repos
 bash backup.sh
@@ -719,9 +719,9 @@ restic -r .test-harness/repo-a snapshots --json | jq 'length'
 # Expected: 1 (one snapshot now exists)
 
 # --include: restrict to one file
-bash backup.sh --include /Users/amir/workspace/restic-backup/.test-harness/src/notes/todo.md
+bash backup.sh --include /Users/amir/workspace/turiya/.test-harness/src/notes/todo.md
 restic -r .test-harness/repo-a snapshots --json | jq -r '.[-1].paths'
-# Expected: ["/Users/amir/workspace/restic-backup/.test-harness/src/notes/todo.md"]
+# Expected: ["/Users/amir/workspace/turiya/.test-harness/src/notes/todo.md"]
 
 # --glob: restrict to files matching *.md
 bash backup.sh --glob '*.md'
@@ -889,7 +889,7 @@ Expected: no output, exit 0.
 
 ```bash
 export RESTIC_PASSWORD=testpass123
-export RESTIC_BACKUP_CONFIG="/Users/amir/workspace/restic-backup/.test-harness/backup.conf"
+export TURIYA_CONFIG="/Users/amir/workspace/turiya/.test-harness/backup.conf"
 rm -rf .test-harness/restore-out
 
 # Full restore, non-interactive via piped "y"
@@ -1097,7 +1097,7 @@ Expected: no output, exit 0.
 
 ```bash
 export RESTIC_PASSWORD=testpass123
-export RESTIC_BACKUP_CONFIG="/Users/amir/workspace/restic-backup/.test-harness/backup.conf"
+export TURIYA_CONFIG="/Users/amir/workspace/turiya/.test-harness/backup.conf"
 
 bash status.sh --all
 # Expected: lists every snapshot in both repo-a and repo-b, from Tasks 5/6's test runs
@@ -1108,7 +1108,7 @@ bash status.sh --pattern 'notes'
 bash status.sh --exclude 'notes'
 # Expected: only snapshots whose paths do NOT include "notes"
 
-bash status.sh --include /Users/amir/workspace/restic-backup/.test-harness/src/docs
+bash status.sh --include /Users/amir/workspace/turiya/.test-harness/src/docs
 # Expected: only snapshots whose paths exactly include the docs source path
 
 jq -c . < .test-harness/logs/status.jsonl > /dev/null && echo "status.jsonl valid"
@@ -1270,7 +1270,7 @@ Expected: no output, exit 0.
 
 ```bash
 export RESTIC_PASSWORD=testpass123
-export RESTIC_BACKUP_CONFIG="/Users/amir/workspace/restic-backup/.test-harness/backup.conf"
+export TURIYA_CONFIG="/Users/amir/workspace/turiya/.test-harness/backup.conf"
 
 bash query.sh --find 'todo.md'
 # Expected: prints snapshot(s) containing todo.md, with size/mtime
@@ -1363,7 +1363,7 @@ git commit -m "chore(install): check for jq alongside restic and rclone"
 
 ## Project purpose
 
-restic-backup automates encrypted, versioned backups of this Mac's important
+turiya automates encrypted, versioned backups of this Mac's important
 directories to three cloud remotes (Google Drive, Dropbox, pCloud) via
 restic + rclone, on a weekly `launchd` schedule with `pmset` wake support.
 All configuration lives in `backup.conf`; the scripts are thin orchestration
@@ -1382,7 +1382,7 @@ around `restic`, `rclone`, and `jq`.
 | `query.sh` | Snapshot search: `--since`/`--until` (date range), `--find` (which snapshot contains a path/glob), `--versions` (every version of a file across snapshots), `--repo` to scope, `--json` for raw output. |
 | `install.sh` | One-time setup: dependency check, Keychain password prompt, rclone remote check, restic repo init, launchd plist render + load, pmset wake schedule. |
 | `uninstall.sh` | Reverses install.sh: unloads the launchd job, clears the pmset schedule, optionally removes the Keychain entry and `LOG_DIR`. |
-| `com.amir.restic-backup.plist.template` | launchd plist template, rendered by `install.sh`. Don't edit the generated `.plist` directly — it's gitignored and regenerated on every `install.sh` run. |
+| `com.amir.turiya.plist.template` | launchd plist template, rendered by `install.sh`. Don't edit the generated `.plist` directly — it's gitignored and regenerated on every `install.sh` run. |
 | `README.md` | User-facing usage docs. |
 | `.copilot-instructions.md` | Copilot-facing project instructions — this file's counterpart. |
 
@@ -1393,7 +1393,7 @@ around `restic`, `rclone`, and `jq`.
 - No associative arrays, `mapfile`/`readarray`, `${var,,}`/`${var^^}`, `local -n` namerefs, or other bash-4+-only features.
 - All JSON construction goes through `jq` (`jq -c`, `jq -nc`) — never hand-built JSON strings.
 - restic pattern semantics (used by `--pattern`/`--glob`/`--include`/`--exclude` on `restore.sh`): a pattern containing `/` is path-anchored; a bare pattern (no `/`) matches the filename at any depth. This is restic's own behavior, not something these scripts implement — see `restic backup --help` / `restic restore --help`.
-- Config lives only in `backup.conf`. Two env var overrides exist for testing, not normal use: `RESTIC_BACKUP_CONFIG` (override which file `load_config` reads) and `RESTIC_PASSWORD` (if already set, `get_restic_password` skips the Keychain lookup).
+- Config lives only in `backup.conf`. Two env var overrides exist for testing, not normal use: `TURIYA_CONFIG` (override which file `load_config` reads) and `RESTIC_PASSWORD` (if already set, `get_restic_password` skips the Keychain lookup).
 - Logging lifecycle: every operation calls `init_logging <op>` once at startup, `emit_event <op> "" info run_start` immediately after, and `emit_event <op> "" info|error run_end --str status success|failure` at the very end.
 
 ## How to add a new script
@@ -1436,7 +1436,7 @@ JSONL envelope, one object per line, written only via `jq -c`:
 ## What not to touch
 
 - `KEYCHAIN_ACCOUNT`/`KEYCHAIN_SERVICE` in `backup.conf` must stay in sync with whatever `install.sh` wrote to Keychain — don't change one without the other (or without re-running `install.sh`).
-- `com.amir.restic-backup.plist.template`'s placeholder tokens (`{{HOME}}`, `{{SCRIPT_DIR}}`, `{{BACKUP_WEEKDAY}}`, `{{BACKUP_HOUR}}`, `{{BACKUP_MINUTE}}`) — `install.sh`'s `sed` render step depends on these exact strings.
+- `com.amir.turiya.plist.template`'s placeholder tokens (`{{HOME}}`, `{{SCRIPT_DIR}}`, `{{BACKUP_WEEKDAY}}`, `{{BACKUP_HOUR}}`, `{{BACKUP_MINUTE}}`) — `install.sh`'s `sed` render step depends on these exact strings.
 - The retention/forget logic in `backup.sh` — it's intentionally simple and matches the documented retention policy; don't add extra forget flags without updating `backup.conf` and `README.md` together.
 - `set -euo pipefail` at the top of every script — don't remove it to silence an error; fix the underlying issue (usually the bash 3.2 empty-array gotcha above).
 - Don't hardcode a path, repo name, or credential anywhere — it belongs in `backup.conf`.
@@ -1459,11 +1459,11 @@ git commit -m "docs: add CLAUDE.md covering file map, conventions, and logging s
 - [ ] **Step 1: Create `.copilot-instructions.md`**
 
 ```markdown
-# GitHub Copilot Instructions — restic-backup
+# GitHub Copilot Instructions — turiya
 
 ## What this project is
 
-restic-backup automates encrypted, versioned backups of this Mac's important
+turiya automates encrypted, versioned backups of this Mac's important
 directories to three cloud remotes (Google Drive, Dropbox, pCloud) via
 restic + rclone, on a weekly `launchd` schedule with `pmset` wake support.
 All configuration lives in `backup.conf`.
@@ -1504,7 +1504,7 @@ Files under `LOG_DIR`: `ops.jsonl` (combined), `<op>.jsonl` (per-op), `<op>.log`
 ## Do not
 
 - Change `KEYCHAIN_ACCOUNT`/`KEYCHAIN_SERVICE` without also updating what's stored in Keychain (via `install.sh`).
-- Edit the generated `.plist` directly (gitignored, regenerated from `com.amir.restic-backup.plist.template`).
+- Edit the generated `.plist` directly (gitignored, regenerated from `com.amir.turiya.plist.template`).
 - Remove `set -euo pipefail` to work around an error.
 - Add a new logging mechanism instead of using `lib/logging.sh`.
 ```
@@ -1526,7 +1526,7 @@ git commit -m "docs: add .copilot-instructions.md"
 - [ ] **Step 1: Replace the full contents of `README.md`**
 
 ```markdown
-# restic-backup
+# turiya
 
 Automated weekly cloud backups using [Restic](https://restic.net/) and [rclone](https://rclone.org/), managed via macOS `launchd` and `pmset`.
 
@@ -1553,7 +1553,7 @@ bash backup.sh                   # first real backup
 - `lib/common.sh` / `lib/logging.sh` are shared helpers sourced by every script (config loading, Keychain access, dependency checks, structured logging)
 - `install.sh` reads `backup.conf` and wires everything up (Keychain, rclone check, repo init, launchd, pmset)
 - `backup.sh` is what launchd runs — it reads `backup.conf` at runtime, pulls the password from Keychain, and backs up to all configured repos
-- The generated `.plist` (gitignored) is rendered from `com.amir.restic-backup.plist.template` by `install.sh`
+- The generated `.plist` (gitignored) is rendered from `com.amir.turiya.plist.template` by `install.sh`
 
 ---
 
@@ -1672,7 +1672,7 @@ Then re-run `install.sh` to apply. It's idempotent — safe to re-run at any tim
 
 ## Logs
 
-All logs live under `LOG_DIR` (default `~/.local/log/restic-backup`), one pair of files per operation plus a combined structured log:
+All logs live under `LOG_DIR` (default `~/.local/log/turiya`), one pair of files per operation plus a combined structured log:
 
 ```
 backup.log      restore.log      status.log      query.log        # human-readable, one per operation
@@ -1699,7 +1699,7 @@ Removes the launchd job and pmset schedule. Optionally removes the Keychain entr
 ## Repository structure
 
 ```
-restic-backup/
+turiya/
 ├── backup.conf                              # ← all config lives here
 ├── lib/
 │   ├── common.sh                            # config loading, Keychain, dependency checks
@@ -1710,7 +1710,7 @@ restic-backup/
 ├── status.sh                                # snapshot inspection
 ├── restore.sh                               # guided restore helper
 ├── query.sh                                 # snapshot search (date range, file, version history)
-├── com.amir.restic-backup.plist.template    # launchd plist template
+├── com.amir.turiya.plist.template    # launchd plist template
 ├── CLAUDE.md                                # project conventions for AI-assisted development
 ├── .copilot-instructions.md                 # same, for GitHub Copilot
 ├── .gitignore
@@ -1815,7 +1815,7 @@ Re-run every verification command from Tasks 5–8 (backup.sh, restore.sh, statu
 
 ```bash
 export RESTIC_PASSWORD=testpass123
-export RESTIC_BACKUP_CONFIG="/Users/amir/workspace/restic-backup/.test-harness/backup.conf"
+export TURIYA_CONFIG="/Users/amir/workspace/turiya/.test-harness/backup.conf"
 
 bash -n backup.sh && bash -n restore.sh && bash -n status.sh && bash -n query.sh && bash -n install.sh && bash -n uninstall.sh
 echo "syntax ok"

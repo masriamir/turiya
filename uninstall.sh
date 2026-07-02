@@ -1,13 +1,13 @@
 #!/bin/bash
 # =============================================================================
-# uninstall.sh — Remove restic-backup launchd job and optionally clean up
+# uninstall.sh — Remove turiya launchd job and optionally clean up
 # =============================================================================
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="$SCRIPT_DIR/backup.conf"
-PLIST_DEST="$HOME/Library/LaunchAgents/com.amir.restic-backup.plist"
+PLIST_DEST="$HOME/Library/LaunchAgents/com.amir.turiya.plist"
 
 # shellcheck source=backup.conf
 source "$CONFIG_FILE"
