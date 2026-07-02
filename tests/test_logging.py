@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 from turiya.config import LoggingConfig
@@ -23,6 +24,8 @@ def test_emit_event_writes_both_files(tmp_path: Path) -> None:
         assert obj["action"] == "new"
         assert obj["size"] == 12
         assert "ts" in obj
+        # v1.0.0 byte-compatibility: `date '+%Y-%m-%dT%H:%M:%S%z'` has no colon in the tz offset.
+        assert re.search(r"-\d{4}$|\+\d{4}$", obj["ts"]), obj["ts"]
 
 
 def test_repo_none_serializes_as_null(tmp_path: Path) -> None:

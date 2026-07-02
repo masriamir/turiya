@@ -28,7 +28,7 @@ class StructuredLogger:
 
     def emit_event(self, *, repo: str | None, level: str, event: str, **fields: object) -> None:
         record: dict[str, object] = {
-            "ts": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "ts": datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S%z"),
             "op": self.op,
             "repo": repo,
             "level": level,

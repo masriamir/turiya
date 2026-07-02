@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import subprocess
 from collections.abc import Sequence
+from typing import Any, cast
 
 from ..config import Config
 from ..keychain import get_password
@@ -96,8 +97,14 @@ def run(
                 log.log_human(f"ERROR: {event.message}")
         if repo_ok and not dry_run:
             try:
-                run_json(url, ["forget", *retention, "--prune"], password=password)
-                log.emit_event(repo=url, level="info", event="prune")
+                result = cast(
+                    list[dict[str, Any]],
+                    run_json(url, ["forget", *retention, "--prune"], password=password),
+                )
+                removed_count = sum(len(obj.get("remove") or []) for obj in result)
+                log.emit_event(
+                    repo=url, level="info", event="prune", removed_count=removed_count
+                )
             except Exception as exc:  # noqa: BLE001
                 log.emit_event(repo=url, level="warn", event="prune", message=str(exc))
         overall = overall and repo_ok

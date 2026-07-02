@@ -178,15 +178,17 @@ One or more `[[schedule]]` tables may be given; each renders its own launchd `St
 
 ## Logs
 
-All logs live under `logging.dir` (default `~/.local/log/turiya`), one pair of files per operation plus a combined structured log:
+All logs live under `logging.dir` (default `~/.local/log/turiya`):
 
 ```
-backup.log      restore.log      status.log      query.log        # human-readable, one per operation
 backup.jsonl    restore.jsonl    status.jsonl    query.jsonl       # structured JSON Lines, one per operation
 ops.jsonl                                                          # combined structured JSON Lines, every operation interleaved
+backup.log      restore.log                                       # human-readable, backup/restore only
 launchd.log                                                        # stdout from launchd
 launchd-err.log                                                    # stderr from launchd
 ```
+
+Every operation (`backup`/`restore`/`status`/`query`) emits structured events to its own `<op>.jsonl` plus the combined `ops.jsonl`. `backup` and `restore` additionally write a human-readable `<op>.log` via the same logger (matching v1.0.0). `status` and `query` print their listings straight to stdout as a formatted table (or JSON with `--json`) — matching v1.0.0's console output — and do not produce a `status.log`/`query.log` file.
 
 Each line of a `.jsonl` file is a standalone JSON object, so any JSON-aware tool can filter it — e.g. with Python: `python -c "import json,sys; [print(l) for l in sys.stdin if json.loads(l)['event']=='file']" < backup.jsonl`. Set `json_per_file = false` under `[logging]` in your config if per-file entries make the `.jsonl` files too large for your taste — you'll still get run/summary/error events. All log files (`.log` and `.jsonl`) rotate automatically at `max_bytes`.
 

@@ -76,7 +76,7 @@ JSONL envelope, one object per line, written only via `json.dumps` (see `Structu
 - `summary` events: the entire raw restic summary/check object is merged in as-is — field names vary by restic subcommand (backup's summary differs from restore's), so don't assume a fixed shape beyond the envelope itself.
 - `error` events: `message`.
 - `prune` events (backup only): `removed_count`.
-- Files, all under `logging.dir`: `ops.jsonl` (combined, every op interleaved), `<op>.jsonl` (per-operation: `backup.jsonl`, `restore.jsonl`, `status.jsonl`, `query.jsonl`), `<op>.log` (human-readable equivalent). All rotate at `logging.max_bytes`.
+- Files, all under `logging.dir`: `ops.jsonl` (combined, every op interleaved), `<op>.jsonl` (per-operation: `backup.jsonl`, `restore.jsonl`, `status.jsonl`, `query.jsonl`). `backup`/`restore` additionally write a human-readable `<op>.log` via the logger; `status`/`query` print their listings to stdout instead (v1.0.0 console parity) and don't produce a `.log` file. All log files rotate at `logging.max_bytes`.
 - `logging.json_per_file = false` in the config suppresses `file` events only; `summary`/`error`/`run_start`/`run_end`/`prune` are always logged.
 
 This schema and file layout are **preserved exactly** from v1.0.0 (byte-compatible) so a future read-only dashboard can consume it unchanged.
@@ -84,14 +84,14 @@ This schema and file layout are **preserved exactly** from v1.0.0 (byte-compatib
 ## What not to touch
 
 - **The core public API** that the future dashboard and other sub-projects depend on:
-  - `config.load(path: Path | None = None) -> Config`
-  - `operations.backup.run(config, *, dry_run=False, include=(), pattern=(), glob=(), exclude=()) -> BackupResult`
-  - `operations.restore.run(config, *, repo=None, snapshot="latest", target, include=(), pattern=(), glob=(), exclude=()) -> RestoreResult`
-  - `operations.status.run(config, *, mode="latest", include=(), pattern=(), glob=(), exclude=()) -> list[RepoStatus]`
-  - `operations.query.run(config, *, repo=None, since=None, until=None, find=None, versions=None) -> QueryResult`
-  - `operations.setup.run(config) -> None` / `operations.setup.teardown(config) -> None`
+  - `config.load(path=None) -> Config`
+  - `operations.backup.run(config, *, dry_run=False, include=(), pattern=(), glob=(), exclude=()) -> bool`
+  - `operations.restore.run(config, *, repo=None, snapshot="latest", target, include=(), pattern=(), glob=(), exclude=()) -> bool`
+  - `operations.status.run(config, *, mode="latest", include=(), pattern=(), glob=(), exclude=()) -> bool`
+  - `operations.query.run(config, *, repo=None, since=None, until=None, find=None, versions=None, json_output=False) -> bool`
+  - `operations.setup.run(config, *, password=None, program=None) -> None` / `operations.setup.teardown(config) -> None`
 
-  Don't change these signatures or drop fields from their result types without a deliberate, coordinated update — external consumers are expected to import them directly.
+  Don't change these signatures without a deliberate, coordinated update — external consumers are expected to import them directly. Richer typed result objects (e.g. a `BackupResult`/`QueryResult`) are deliberately deferred to the future dashboard sub-project; until then, structured per-run detail is available via the JSONL logs, and these functions return a plain success `bool` (setup/teardown return `None`).
 - **The JSONL logging schema** documented above — it must stay byte-compatible with v1.0.0 so existing log archives and the future dashboard keep working.
 - `identity.label` / `keychain.account` / `keychain.service` in the config must stay in sync with whatever `turiya setup` wrote to Keychain and installed via `launchctl` — don't change one without the other (or without re-running `turiya setup`).
 - The retention/forget logic in `operations/backup.py` — it's intentionally simple and matches the documented retention policy; don't add extra forget flags without updating `config.example.toml` and `README.md` together.

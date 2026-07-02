@@ -54,11 +54,16 @@ def run(
                     args.append("--reverse")
                 result = cast(list[dict[str, Any]], run_json(url, args, password=password))
                 matches = [m for entry in result for m in entry.get("matches", [])]
-                mode = "find" if find else "versions"
-                log.emit_event(
-                    repo=url, level="info", event="summary",
-                    mode=mode, match_count=len(matches),
-                )
+                if find:
+                    log.emit_event(
+                        repo=url, level="info", event="summary",
+                        mode="find", target=target, match_count=len(matches),
+                    )
+                else:
+                    log.emit_event(
+                        repo=url, level="info", event="summary",
+                        mode="versions", target=target, version_count=len(matches),
+                    )
                 _print_finds(url, result, json_output)
         except ResticError as exc:
             overall = False
@@ -73,11 +78,10 @@ def _print_snaps(url: str, rows: list[dict[str, Any]], json_output: bool) -> Non
     if json_output:
         print(json.dumps(rows))
         return
-    if rows:
-        print(f"\n--- {url} ---")
-        for s in rows:
-            paths = ", ".join(str(p) for p in s.get("paths", []))
-            print(f"  {s.get('short_id', '')}  {s.get('time', '')}  {paths}")
+    print(f"\n--- {url} ---")
+    for s in rows:
+        paths = ", ".join(str(p) for p in s.get("paths", []))
+        print(f"  {s.get('short_id', '')}  {s.get('time', '')}  {paths}")
 
 
 def _print_finds(url: str, result: list[dict[str, Any]], json_output: bool) -> None:
