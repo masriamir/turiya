@@ -22,3 +22,12 @@ rclone.conf
 *.swp
 *.swo
 .superpowers/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
