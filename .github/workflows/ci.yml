@@ -29,6 +29,17 @@ jobs:
       - name: Sync dependencies
         run: uv sync --locked --all-extras --dev
 
+      - name: Install restic
+        env:
+          RESTIC_VERSION: "0.17.3"
+        run: |
+          curl -sSL -o restic.bz2 \
+            "https://github.com/restic/restic/releases/download/v${RESTIC_VERSION}/restic_${RESTIC_VERSION}_linux_amd64.bz2"
+          bunzip2 restic.bz2
+          chmod +x restic
+          sudo mv restic /usr/local/bin/restic
+          restic version
+
       - name: pytest
         run: uv run pytest
 
