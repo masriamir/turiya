@@ -86,16 +86,29 @@ def stream(
     )
     saw_error = False
     assert proc.stdout is not None
-    for line in proc.stdout:
-        event = parse_event(line)
-        if event is None:
-            continue
-        if isinstance(event, ErrorEvent):
-            saw_error = True
-        yield event
-    code = proc.wait()
-    if code != 0 and not saw_error:
-        yield ErrorEvent(message=f"restic exited with status {code}")
+    try:
+        for line in proc.stdout:
+            event = parse_event(line)
+            if event is None:
+                continue
+            if isinstance(event, ErrorEvent):
+                saw_error = True
+            yield event
+        code = proc.wait()
+        if code != 0 and not saw_error:
+            yield ErrorEvent(message=f"restic exited with status {code}")
+    finally:
+        # If the consumer abandoned iteration early (GeneratorExit) the child
+        # is still running and blocked writing to an unread pipe — terminate it.
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+        if proc.stdout is not None:
+            proc.stdout.close()
 
 
 def run_json(repo: str, args: Sequence[str], *, password: str) -> object:
