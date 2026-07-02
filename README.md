@@ -232,7 +232,8 @@ turiya/
 │       └── launchd.plist.tmpl               # launchd plist template
 ├── tests/                                   # pytest: unit + integration suites
 ├── CLAUDE.md                                # project conventions for AI-assisted development
-├── .copilot-instructions.md                 # same, for GitHub Copilot
+├── .github/                                 # CI, CodeQL, Dependabot, issue/PR templates
+│   └── copilot-instructions.md              # same conventions, for GitHub Copilot
 ├── .gitignore
 └── README.md
 ```

@@ -23,6 +23,11 @@ rclone.conf
 *.swo
 .superpowers/
 
+# Claude Code — local & runtime files (shared settings.json / agents / commands stay tracked)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/*.lock
+
 # Python
 .venv/
 __pycache__/
