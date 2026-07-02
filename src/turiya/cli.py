@@ -31,9 +31,14 @@ def backup(
     glob: list[str] = typer.Option([], "--glob"),
     exclude: list[str] = typer.Option([], "--exclude"),
 ) -> None:
-    ok = backup_op.run(
-        _load(), dry_run=dry_run, include=include, pattern=pattern, glob=glob, exclude=exclude
-    )
+    cfg = _load()
+    try:
+        ok = backup_op.run(
+            cfg, dry_run=dry_run, include=include, pattern=pattern, glob=glob, exclude=exclude
+        )
+    except TuriyaError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
     raise typer.Exit(code=0 if ok else 1)
 
 
@@ -47,16 +52,21 @@ def restore(
     glob: list[str] = typer.Option([], "--glob"),
     exclude: list[str] = typer.Option([], "--exclude"),
 ) -> None:
-    ok = restore_op.run(
-        _load(),
-        repo=repo,
-        snapshot=snapshot,
-        target=target,
-        include=include,
-        pattern=pattern,
-        glob=glob,
-        exclude=exclude,
-    )
+    cfg = _load()
+    try:
+        ok = restore_op.run(
+            cfg,
+            repo=repo,
+            snapshot=snapshot,
+            target=target,
+            include=include,
+            pattern=pattern,
+            glob=glob,
+            exclude=exclude,
+        )
+    except TuriyaError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
     raise typer.Exit(code=0 if ok else 1)
 
 
@@ -68,9 +78,14 @@ def status(
     glob: list[str] = typer.Option([], "--glob"),
     exclude: list[str] = typer.Option([], "--exclude"),
 ) -> None:
-    ok = status_op.run(
-        _load(), mode=mode, include=include, pattern=pattern, glob=glob, exclude=exclude
-    )
+    cfg = _load()
+    try:
+        ok = status_op.run(
+            cfg, mode=mode, include=include, pattern=pattern, glob=glob, exclude=exclude
+        )
+    except TuriyaError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
     raise typer.Exit(code=0 if ok else 1)
 
 
@@ -110,4 +125,9 @@ def setup(password: str | None = typer.Option(None, "--password")) -> None:
 
 @app.command()
 def teardown() -> None:
-    setup_op.teardown(_load())
+    cfg = _load()
+    try:
+        setup_op.teardown(cfg)
+    except TuriyaError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
