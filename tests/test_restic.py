@@ -54,11 +54,13 @@ def test_parse_restore_event_uses_size_key() -> None:
 def test_stream_terminates_process_on_early_close(monkeypatch: pytest.MonkeyPatch) -> None:
     class FakePopen:
         def __init__(self) -> None:
-            self._lines = iter([
-                '{"message_type":"verbose_status","action":"new","item":"/a","data_size":1}\n',
-                '{"message_type":"verbose_status","action":"new","item":"/b","data_size":1}\n',
-            ])
-            self.stdout = self          # doubles as the stdout iterator
+            self._lines = iter(
+                [
+                    '{"message_type":"verbose_status","action":"new","item":"/a","data_size":1}\n',
+                    '{"message_type":"verbose_status","action":"new","item":"/b","data_size":1}\n',
+                ]
+            )
+            self.stdout = self  # doubles as the stdout iterator
             self._alive = True
             self.terminated = False
             self.closed = False
@@ -89,7 +91,7 @@ def test_stream_terminates_process_on_early_close(monkeypatch: pytest.MonkeyPatc
     fake = FakePopen()
     monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: fake)
     gen = restic.stream("repo", ["backup"], password="x")
-    assert isinstance(next(gen), FileEvent)   # consume one event, then abandon
-    gen.close()                                # triggers the finally
+    assert isinstance(next(gen), FileEvent)  # consume one event, then abandon
+    gen.close()  # triggers the finally
     assert fake.terminated is True
     assert fake.closed is True

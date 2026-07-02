@@ -44,7 +44,7 @@ def test_empty_repos_rejected(tmp_path: Path) -> None:
     bad = tmp_path / "bad.toml"
     bad.write_text(
         '[identity]\nlabel="x"\n[keychain]\naccount="a"\nservice="s"\n'
-        '[[schedule]]\nhour=1\nminute=0\n[power]\nwake_offset_minutes=5\n'
+        "[[schedule]]\nhour=1\nminute=0\n[power]\nwake_offset_minutes=5\n"
         'sources=["~/x"]\nexcludes=[]\n'
         "[retention]\nkeep_daily=1\nkeep_weekly=1\nkeep_monthly=1\nkeep_yearly=1\n"
         '[logging]\ndir="~/l"\nmax_bytes=1\njson_per_file=true\n'

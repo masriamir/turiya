@@ -13,9 +13,7 @@ from ..restic import ErrorEvent, FileEvent, SummaryEvent, run_json, stream
 
 
 def _find(source: str, flag: str, value: str) -> list[str]:
-    result = subprocess.run(
-        ["find", source, flag, value], capture_output=True, text=True
-    )
+    result = subprocess.run(["find", source, flag, value], capture_output=True, text=True)
     return [line for line in result.stdout.splitlines() if line]
 
 
@@ -70,10 +68,14 @@ def run(
 
     exclude_flags = [f"--exclude={p}" for p in (*cfg.excludes, *exclude)]
     retention = [
-        "--keep-daily", str(cfg.retention.keep_daily),
-        "--keep-weekly", str(cfg.retention.keep_weekly),
-        "--keep-monthly", str(cfg.retention.keep_monthly),
-        "--keep-yearly", str(cfg.retention.keep_yearly),
+        "--keep-daily",
+        str(cfg.retention.keep_daily),
+        "--keep-weekly",
+        str(cfg.retention.keep_weekly),
+        "--keep-monthly",
+        str(cfg.retention.keep_monthly),
+        "--keep-yearly",
+        str(cfg.retention.keep_yearly),
     ]
 
     overall = True
@@ -86,8 +88,14 @@ def run(
         ):
             if isinstance(event, FileEvent):
                 if log.json_per_file:
-                    log.emit_event(repo=url, level="info", event="file",
-                                   action=event.action, path=event.path, size=event.size)
+                    log.emit_event(
+                        repo=url,
+                        level="info",
+                        event="file",
+                        action=event.action,
+                        path=event.path,
+                        size=event.size,
+                    )
                 log.log_human(f"{event.action} {event.path}")
             elif isinstance(event, SummaryEvent):
                 log.emit_event(repo=url, level="info", event="summary", **event.data)
@@ -102,9 +110,7 @@ def run(
                     run_json(url, ["forget", *retention, "--prune"], password=password),
                 )
                 removed_count = sum(len(obj.get("remove") or []) for obj in result)
-                log.emit_event(
-                    repo=url, level="info", event="prune", removed_count=removed_count
-                )
+                log.emit_event(repo=url, level="info", event="prune", removed_count=removed_count)
             except Exception as exc:  # noqa: BLE001
                 log.emit_event(repo=url, level="warn", event="prune", message=str(exc))
         overall = overall and repo_ok

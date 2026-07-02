@@ -14,8 +14,7 @@ def test_find_locates_file(harness_config: Path, capsys) -> None:  # type: ignor
     assert query.run(cfg, find="todo.md") is True
     assert "todo.md" in capsys.readouterr().out
     lines = [
-        json.loads(line)
-        for line in (cfg.logging.dir / "query.jsonl").read_text().splitlines()
+        json.loads(line) for line in (cfg.logging.dir / "query.jsonl").read_text().splitlines()
     ]
     summary = next(x for x in lines if x["event"] == "summary")
     assert summary["mode"] == "find"
@@ -29,8 +28,7 @@ def test_versions_emits_version_count(harness_config: Path, capsys) -> None:  # 
     assert query.run(cfg, versions="todo.md") is True
     capsys.readouterr()
     lines = [
-        json.loads(line)
-        for line in (cfg.logging.dir / "query.jsonl").read_text().splitlines()
+        json.loads(line) for line in (cfg.logging.dir / "query.jsonl").read_text().splitlines()
     ]
     summary = next(x for x in lines if x["event"] == "summary")
     assert summary["mode"] == "versions"

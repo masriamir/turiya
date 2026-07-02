@@ -38,13 +38,17 @@ def run(
             if since or until:
                 snaps = cast(list[dict[str, Any]], run_json(url, ["snapshots"], password=password))
                 rows = [
-                    s for s in snaps
+                    s
+                    for s in snaps
                     if (not since or str(s.get("time", "")) >= since)
                     and (not until or str(s.get("time", "")) <= until)
                 ]
                 log.emit_event(
-                    repo=url, level="info", event="summary",
-                    mode="date_range", match_count=len(rows),
+                    repo=url,
+                    level="info",
+                    event="summary",
+                    mode="date_range",
+                    match_count=len(rows),
                 )
                 _print_snaps(url, rows, json_output)
             else:
@@ -56,13 +60,21 @@ def run(
                 matches = [m for entry in result for m in entry.get("matches", [])]
                 if find:
                     log.emit_event(
-                        repo=url, level="info", event="summary",
-                        mode="find", target=target, match_count=len(matches),
+                        repo=url,
+                        level="info",
+                        event="summary",
+                        mode="find",
+                        target=target,
+                        match_count=len(matches),
                     )
                 else:
                     log.emit_event(
-                        repo=url, level="info", event="summary",
-                        mode="versions", target=target, version_count=len(matches),
+                        repo=url,
+                        level="info",
+                        event="summary",
+                        mode="versions",
+                        target=target,
+                        version_count=len(matches),
                     )
                 _print_finds(url, result, json_output)
         except ResticError as exc:
