@@ -1,25 +1,25 @@
 """Typed exception hierarchy for turiya."""
 
 
-class ResticBackupError(Exception):
+class TuriyaError(Exception):
     """Base class for all turiya errors."""
 
 
-class ConfigError(ResticBackupError):
+class ConfigError(TuriyaError):
     """Configuration is missing, unreadable, or invalid."""
 
 
-class KeychainError(ResticBackupError):
+class KeychainError(TuriyaError):
     """The restic password could not be retrieved from or stored in the Keychain."""
 
 
-class ResticError(ResticBackupError):
+class ResticError(TuriyaError):
     """A restic invocation failed."""
 
 
-class RcloneError(ResticBackupError):
+class RcloneError(TuriyaError):
     """An rclone invocation failed or a remote is missing."""
 
 
-class SchedulingError(ResticBackupError):
+class SchedulingError(TuriyaError):
     """launchd/pmset scheduling setup failed."""
