@@ -1,0 +1,34 @@
+sources = ["~/Documents", "~/Desktop"]
+excludes = [".DS_Store", "node_modules"]
+
+[identity]
+label = "com.example.turiya"
+
+[keychain]
+account = "restic"
+service = "turiya"
+
+[[schedule]]
+weekday = 0
+hour = 10
+minute = 0
+
+[power]
+wake_offset_minutes = 5
+
+[[repo]]
+url = "rclone:gdrive:turiya-backups"
+
+[[repo]]
+url = "rclone:dropbox:turiya-backups"
+
+[retention]
+keep_daily = 7
+keep_weekly = 4
+keep_monthly = 6
+keep_yearly = 1
+
+[logging]
+dir = "~/.local/log/turiya"
+max_bytes = 5242880
+json_per_file = true

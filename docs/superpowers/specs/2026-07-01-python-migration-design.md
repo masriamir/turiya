@@ -110,7 +110,16 @@ The future dashboard imports `operations` + `config` directly — never `cli`.
 - `operations.query.run(config, *, repo=None, since=None, until=None, find=None, versions=None) -> QueryResult`
 - `operations.setup.run(config) -> None` / `operations.setup.teardown(config) -> None`
 
-Operations emit events through `logging.py` and return typed result objects.
+Operations emit events through `logging.py`.
+
+> **As-built note (v2.0.0):** the typed `BackupResult`/`RestoreResult`/
+> `list[RepoStatus]`/`QueryResult` return objects above were the original
+> design aspiration. As shipped, `backup`/`restore`/`status`/`query`.run
+> return a plain success `bool` and `setup.run`/`teardown` return `None`;
+> structured per-run detail is available via the JSONL logs. Richer typed
+> result objects are deliberately deferred to the future dashboard
+> sub-project, which will define the exact fields it needs. See `CLAUDE.md`
+> for the authoritative current signatures.
 
 ## Configuration
 
@@ -122,6 +131,11 @@ if absent. Paths support `~` / `$HOME` expansion at load time.
 Schema (illustrative):
 
 ```toml
+# Root-level keys (sources/excludes) must precede all [table]/[[array]]
+# headers, otherwise TOML absorbs them into the preceding table.
+sources = ["~/Documents", "~/Desktop", "~/Projects"]
+excludes = [".DS_Store", "node_modules", "*.tmp"]
+
 [identity]
 # Names the launchd job (replaces the hardcoded com.amir.turiya) — item 2
 label = "com.amir.turiya"
@@ -144,9 +158,6 @@ wake_offset_minutes = 5   # pmset wake, minutes before the earliest schedule
 url = "rclone:gdrive:turiya-backups"
 [[repo]]
 url = "rclone:dropbox:turiya-backups"
-
-sources = ["~/Documents", "~/Desktop", "~/Projects"]
-excludes = [".DS_Store", "node_modules", "*.tmp"]
 
 [retention]
 keep_daily = 7
