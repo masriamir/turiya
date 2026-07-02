@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-from collections.abc import Iterator, Sequence
+from collections.abc import Generator, Sequence
 from dataclasses import dataclass, field
 
 from .errors import ResticError
@@ -73,7 +73,7 @@ def stream(
     *,
     password: str,
     dry_run: bool = False,
-) -> Iterator[ResticEvent]:
+) -> Generator[ResticEvent]:
     cmd = ["restic", "-r", repo, *args, "--json", "--verbose=2"]
     if dry_run:
         cmd.append("--dry-run")

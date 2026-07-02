@@ -87,7 +87,7 @@ def test_stream_terminates_process_on_early_close(monkeypatch: pytest.MonkeyPatc
             self._alive = False
 
     fake = FakePopen()
-    monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: fake)  # type: ignore[arg-type]
+    monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: fake)
     gen = restic.stream("repo", ["backup"], password="x")
     assert isinstance(next(gen), FileEvent)   # consume one event, then abandon
     gen.close()                                # triggers the finally
