@@ -66,6 +66,29 @@ from `main` and remains recoverable at the `v1.0.0` git tag.
 4. Write unit tests (subprocess mocked) and, if it touches restic, an integration test against a real temp repo fixture.
 5. Run the full gate (`pytest`, `ruff check`, `mypy`, `ty check`) before considering the change done.
 
+## Working a PR (Copilot review loop)
+
+This repo has GitHub Copilot's automatic PR review enabled. The standard way
+to drive a PR to mergeable state, when asked to "address PR comments" or
+"work on PR #N":
+
+1. Fetch all review comments (`gh api repos/<owner>/<repo>/pulls/<n>/comments`
+   for inline comments, `.../reviews` for review summaries).
+2. Fix each comment in code, with tests where applicable, and run the full
+   gate before committing.
+3. Commit and push. If the remote branch has moved on (e.g. `main` got
+   merged in), `git pull --rebase` before pushing rather than force-pushing.
+4. Reply to each review comment thread explaining the fix (commit sha + what
+   changed): `gh api repos/<owner>/<repo>/pulls/<n>/comments/<id>/replies -f body=...`.
+5. Resolve each thread with the GraphQL `resolveReviewThread` mutation (the
+   thread's node id comes from a `reviewThreads` GraphQL query, not the REST
+   comment id).
+6. Re-request a Copilot review: `gh pr edit <n> --add-reviewer
+   copilot-pull-request-reviewer`.
+7. Wait for the new review. If it has new comments, repeat from step 2.
+8. When a re-review comes back clean, stop and hand back for manual review.
+   Never merge the PR yourself — that decision is always the user's.
+
 ## Logging schema
 
 JSONL envelope, one object per line, written only via `json.dumps` (see `StructuredLogger.emit_event` in `src/turiya/logging.py`):

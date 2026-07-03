@@ -41,6 +41,18 @@ support. It is a library-first Python 3.14 package: a layered core
 - New operations follow the skeleton documented in `CLAUDE.md`'s "How to add a new operation" section.
 - Run the full gate before considering any change done: `uv run pytest`, `uv run ruff check .`, `uv run mypy src tests`, `uv run ty check` — all clean, zero warnings.
 
+## Working a PR (Copilot review loop)
+
+This repo has automatic Copilot PR review enabled. To drive a PR to
+mergeable state (e.g. when asked to "address PR comments"):
+
+1. Fetch review comments via the `gh api repos/<owner>/<repo>/pulls/<n>/comments` and `.../reviews` endpoints.
+2. Fix each comment in code (with tests), running the full gate before committing.
+3. Commit and push, rebasing onto the remote branch first if it has moved.
+4. Reply to each comment thread explaining the fix, then resolve it (GraphQL `resolveReviewThread`, using the thread node id from a `reviewThreads` query).
+5. Re-request a Copilot review (`gh pr edit <n> --add-reviewer copilot-pull-request-reviewer`) and repeat from step 2 if new comments appear.
+6. Stop once a re-review comes back clean, and hand back for manual review — never merge the PR; that's always the user's call. See `CLAUDE.md`'s "Working a PR" section for the full walkthrough.
+
 ## Logging schema
 
 One JSON object per line (JSONL), written only via `json.dumps` (unchanged from v1.0.0):
