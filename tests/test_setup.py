@@ -17,6 +17,7 @@ def test_default_program_resolves_uv_tool_bin(
     bin_dir.mkdir()
     shim = bin_dir / "turiya"
     shim.write_text("#!/bin/sh\n")
+    shim.chmod(0o755)
 
     def _fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         assert cmd == ["uv", "tool", "dir", "--bin"]
@@ -34,6 +35,7 @@ def test_default_program_falls_back_to_local_bin_when_uv_missing(
     bin_dir.mkdir(parents=True)
     shim = bin_dir / "turiya"
     shim.write_text("#!/bin/sh\n")
+    shim.chmod(0o755)
 
     def _boom(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         raise FileNotFoundError("uv not found")
@@ -47,6 +49,23 @@ def test_default_program_raises_when_shim_missing(
 ) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
+
+    def _fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 0, stdout=f"{bin_dir}\n", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+    with pytest.raises(SchedulingError, match="not installed"):
+        setup.default_program()
+
+
+def test_default_program_raises_when_shim_not_executable(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    shim = bin_dir / "turiya"
+    shim.write_text("#!/bin/sh\n")
+    shim.chmod(0o644)
 
     def _fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(cmd, 0, stdout=f"{bin_dir}\n", stderr="")
