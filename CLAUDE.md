@@ -80,8 +80,16 @@ to drive a PR to mergeable state, when asked to "address PR comments" or
    and have no resolve mechanism.
 2. Fix each comment in code, with tests where applicable, and run the full
    gate before committing.
-3. Commit and push. If the remote branch has moved on (e.g. `main` got
-   merged in), `git pull --rebase` before pushing rather than force-pushing.
+3. Commit. Before pushing, check whether the *PR branch's own remote tip*
+   has moved (e.g. someone pushed to it directly, or merged `main` into it
+   via the GitHub UI):
+   `git fetch origin <branch> -q && git log --oneline HEAD..origin/<branch>`.
+   If it has moved and your local commit isn't pushed yet, `git pull --rebase`
+   cleanly replays it on top — no force-push needed. This is different from
+   rebasing your commits onto an updated `main`: that rewrites history you
+   may have already pushed, which needs `git push --force-with-lease` —
+   don't do that without asking the user first, per this repo's git safety
+   rules.
 4. Reply to each inline comment thread explaining the fix (commit sha + what
    changed): `gh api repos/<owner>/<repo>/pulls/<n>/comments/<id>/replies -f body=...`.
    A review's top-level body isn't a thread — if it needs a response, post a

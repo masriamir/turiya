@@ -48,7 +48,7 @@ mergeable state (e.g. when asked to "address PR comments"):
 
 1. Fetch feedback from both resources — they're different: `.../pulls/<n>/comments` returns inline code review comments (each anchored to a resolvable `reviewThread`); `.../pulls/<n>/reviews` returns review objects (approval/state + an optional top-level body) with no resolve mechanism.
 2. Fix each comment in code (with tests), running the full gate before committing.
-3. Commit and push, rebasing onto the remote branch first if it has moved.
+3. Commit. If the PR branch's own remote tip has moved (someone pushed to it, or `main` was merged into it via the GitHub UI) and your commit isn't pushed yet, `git pull --rebase` first. That's different from rebasing onto an updated `main`, which rewrites already-pushed history and needs `--force-with-lease` — don't do that without asking the user first.
 4. Reply to each inline comment thread explaining the fix, then resolve it (GraphQL `resolveReviewThread`, using the thread node id from a `reviewThreads` query). A review's top-level body isn't a thread — reply to it with a normal PR comment (`gh pr comment <n> --body ...`) if it needs one.
 5. Re-request a Copilot review (`gh pr edit <n> --add-reviewer copilot-pull-request-reviewer`) and repeat from step 2 if new comments appear.
 6. Stop once a re-review comes back clean, and hand back for manual review — never merge the PR; that's always the user's call. See `CLAUDE.md`'s "Working a PR" section for the full walkthrough.
