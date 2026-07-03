@@ -46,10 +46,10 @@ support. It is a library-first Python 3.14 package: a layered core
 This repo has automatic Copilot PR review enabled. To drive a PR to
 mergeable state (e.g. when asked to "address PR comments"):
 
-1. Fetch review comments via the `gh api repos/<owner>/<repo>/pulls/<n>/comments` and `.../reviews` endpoints.
+1. Fetch feedback from both resources — they're different: `.../pulls/<n>/comments` returns inline code review comments (each anchored to a resolvable `reviewThread`); `.../pulls/<n>/reviews` returns review objects (approval/state + an optional top-level body) with no resolve mechanism.
 2. Fix each comment in code (with tests), running the full gate before committing.
 3. Commit and push, rebasing onto the remote branch first if it has moved.
-4. Reply to each comment thread explaining the fix, then resolve it (GraphQL `resolveReviewThread`, using the thread node id from a `reviewThreads` query).
+4. Reply to each inline comment thread explaining the fix, then resolve it (GraphQL `resolveReviewThread`, using the thread node id from a `reviewThreads` query). A review's top-level body isn't a thread — reply to it with a normal PR comment (`gh pr comment <n> --body ...`) if it needs one.
 5. Re-request a Copilot review (`gh pr edit <n> --add-reviewer copilot-pull-request-reviewer`) and repeat from step 2 if new comments appear.
 6. Stop once a re-review comes back clean, and hand back for manual review — never merge the PR; that's always the user's call. See `CLAUDE.md`'s "Working a PR" section for the full walkthrough.
 

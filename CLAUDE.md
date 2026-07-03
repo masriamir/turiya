@@ -72,17 +72,23 @@ This repo has GitHub Copilot's automatic PR review enabled. The standard way
 to drive a PR to mergeable state, when asked to "address PR comments" or
 "work on PR #N":
 
-1. Fetch all review comments (`gh api repos/<owner>/<repo>/pulls/<n>/comments`
-   for inline comments, `.../reviews` for review summaries).
+1. Fetch feedback from both PR review resources, which are different things:
+   `gh api repos/<owner>/<repo>/pulls/<n>/comments` returns inline code
+   review comments, each anchored to a resolvable GraphQL `reviewThread`;
+   `.../reviews` returns review objects (approval/state + an optional
+   top-level body) that are **not** threads and have no resolve mechanism.
 2. Fix each comment in code, with tests where applicable, and run the full
    gate before committing.
 3. Commit and push. If the remote branch has moved on (e.g. `main` got
    merged in), `git pull --rebase` before pushing rather than force-pushing.
-4. Reply to each review comment thread explaining the fix (commit sha + what
-   changed): `gh api repos/<owner>/<repo>/pulls/<n>/comments/<id>/replies -f body=...`.
-5. Resolve each thread with the GraphQL `resolveReviewThread` mutation (the
-   thread's node id comes from a `reviewThreads` GraphQL query, not the REST
-   comment id).
+4. Reply to each inline comment thread explaining the fix (commit sha + what
+   changed): `gh api repos/<owner>/<repo>/pulls/<n>/comments/<id>/replies -f
+   body=...`. A review's top-level body isn't a thread — if it needs a
+   response, post a normal PR comment instead (`gh pr comment <n> --body
+   ...`, or `gh api repos/<owner>/<repo>/issues/<n>/comments`).
+5. Resolve each inline comment thread with the GraphQL `resolveReviewThread`
+   mutation (the thread's node id comes from a `reviewThreads` GraphQL
+   query, not the REST comment id). Review bodies have nothing to resolve.
 6. Re-request a Copilot review: `gh pr edit <n> --add-reviewer
    copilot-pull-request-reviewer`.
 7. Wait for the new review. If it has new comments, repeat from step 2.
