@@ -114,7 +114,7 @@ setting — see §D).
 
 | Control | File / location | Enforcement |
 |---|---|---|
-| **Ruff `S` (flake8-bandit)** added to `[tool.ruff.lint] select` | `pyproject.toml` | **Blocks** — runs inside the existing `ruff check` CI gate. Directly covers subprocess construction (threat #2). Subsumes standalone Bandit. |
+| **Ruff `S` (flake8-bandit)** added to `select`, tuned per Consequences | `pyproject.toml` | **Blocks** — runs inside the existing `ruff check` CI gate. Keeps the shell-injection rules (`S602`/`S604`/`S605`/`S609`) active as a guardrail on subprocess construction (threat #2). Subsumes standalone Bandit. |
 | **`dependency-review-action`** on `pull_request` | new `.github/workflows/dependency-review.yml` | **Blocks** — fails a PR that *introduces* a vulnerable dependency or a disallowed license, at review time (Dependabot only reacts post-merge). |
 | **zizmor** (GitHub Actions static analysis) in **pedantic** mode, SARIF uploaded | new `.github/workflows/zizmor.yml` | **Blocks** — catches template-injection, over-broad `permissions`, unpinned actions, and other workflow-level defects (threat #1). |
 | **CodeQL hardening** — explicit `build-mode: none`, minimal top-level `permissions`, SHA-pinned actions | `.github/workflows/codeql.yml` | Code-scanning results made a **required** check via branch protection (§D). |
@@ -183,12 +183,26 @@ standing decision that removes the future design step.
 
 - **More required checks = more PR friction**, plus recurring Dependabot churn
   from SHA-pin bumps. Accepted as the cost of "maximum".
-- **Ruff `S` will flag the intentional `restic`/`rclone` subprocess calls**
-  (notably `S603` subprocess-without-shell-equals-true review and `S607`
-  starting-a-process-with-a-partial-path). Convention: suppress these at the
-  call sites with a scoped `# noqa: S603` / `# noqa: S607` and a one-line
-  justification comment, rather than globally disabling the rules — so the
-  suppressions remain visible and auditable.
+- **Ruff `S` is tuned, not suppressed per-site.** Enabling the full `S`
+  family surfaces 23 findings in `src/` and 121 in `tests/`, dominated by rules
+  that carry no signal here: `S603` fires on *every* `subprocess.run`
+  regardless of safety (it detects nothing on its own), `S607` fires because we
+  deliberately resolve system tools (`restic`/`rclone`/`launchctl`/`sudo`) via
+  `PATH`, and `S101` fires on every pytest `assert`. The value of enabling `S`
+  is the *latent* injection guardrail — `S602` (`shell=True`), `S604`, `S605`,
+  `S609` — which finds nothing today and stays active for future code.
+  Convention, therefore:
+  - Globally `ignore = ["S603", "S607"]` in `[tool.ruff.lint]`, each with a
+    one-line rationale comment, rather than scattering 22 identical `# noqa`
+    suppressions across the six core modules.
+  - `per-file-ignores` for `"tests/**"` covering `S101`, `S105`, `S106`,
+    `S108`, `S603`, `S607` — asserts, dummy passwords, and temp paths are
+    correct idiom in test code, not defects.
+  - The single `src` `S101` (a type-narrowing `assert` in `restic.py`) is
+    replaced with an explicit `None`-guard, since `python -O` would strip the
+    assert and the guarded branch is real.
+  - The injection-detecting rules stay enabled, so a future `shell=True` or
+    `os.system` call fails the existing `ruff check` gate.
 - **OpenSSF Scorecard is advisory, not gated.** Rationale: (1) several Scorecard
   checks are structurally unwinnable for a solo-maintainer repo (e.g.
   Code-Review penalizes self-merge; Fuzzing requires OSS-Fuzz), so an enforced
