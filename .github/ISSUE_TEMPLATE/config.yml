@@ -1,8 +1,5 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Question / discussion
-    url: https://github.com/masriamir/turiya/discussions
-    about: Ask usage questions or discuss ideas here rather than opening an issue.
   - name: Security vulnerability
     url: https://github.com/masriamir/turiya/security/advisories/new
     about: Report security issues privately via a GitHub security advisory.
