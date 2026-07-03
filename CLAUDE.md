@@ -66,6 +66,44 @@ from `main` and remains recoverable at the `v1.0.0` git tag.
 4. Write unit tests (subprocess mocked) and, if it touches restic, an integration test against a real temp repo fixture.
 5. Run the full gate (`pytest`, `ruff check`, `mypy`, `ty check`) before considering the change done.
 
+## Working a PR (Copilot review loop)
+
+This repo has GitHub Copilot's automatic PR review enabled. The standard way
+to drive a PR to mergeable state, when asked to "address PR comments" or
+"work on PR #N":
+
+1. Fetch feedback from both PR review resources, which are different things:
+   `gh api repos/<owner>/<repo>/pulls/<n>/comments` returns inline code
+   review comments, each anchored to a resolvable GraphQL `reviewThread`;
+   `gh api repos/<owner>/<repo>/pulls/<n>/reviews` returns review objects
+   (approval/state + an optional top-level body) that are **not** threads
+   and have no resolve mechanism.
+2. Fix each comment in code, with tests where applicable, and run the full
+   gate before committing.
+3. Commit. Before pushing, check whether the *PR branch's own remote tip*
+   has moved (e.g. someone pushed to it directly, or merged `main` into it
+   via the GitHub UI):
+   `git fetch origin <branch> -q && git log --oneline HEAD..origin/<branch>`.
+   If it has moved and your local commit isn't pushed yet, `git pull --rebase`
+   cleanly replays it on top — no force-push needed. This is different from
+   rebasing your commits onto an updated `main`: that rewrites history you
+   may have already pushed, which needs `git push --force-with-lease`.
+   Force-pushing rewrites shared history and can't be cleanly undone, so
+   don't do it without asking the user first, even if it would resolve a
+   push conflict.
+4. Reply to each inline comment thread explaining the fix (commit sha + what
+   changed): `gh api repos/<owner>/<repo>/pulls/<n>/comments/<id>/replies -f body=...`.
+   A review's top-level body isn't a thread — if it needs a response, post a
+   normal PR comment instead (`gh pr comment <n> --body ...`, or
+   `gh api repos/<owner>/<repo>/issues/<n>/comments`).
+5. Resolve each inline comment thread with the GraphQL `resolveReviewThread`
+   mutation (the thread's node id comes from a `reviewThreads` GraphQL
+   query, not the REST comment id). Review bodies have nothing to resolve.
+6. Re-request a Copilot review: `gh pr edit <n> --add-reviewer copilot-pull-request-reviewer`.
+7. Wait for the new review. If it has new comments, repeat from step 2.
+8. When a re-review comes back clean, stop and hand back for manual review.
+   Never merge the PR yourself — that decision is always the user's.
+
 ## Logging schema
 
 JSONL envelope, one object per line, written only via `json.dumps` (see `StructuredLogger.emit_event` in `src/turiya/logging.py`):
