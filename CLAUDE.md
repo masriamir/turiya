@@ -87,9 +87,10 @@ to drive a PR to mergeable state, when asked to "address PR comments" or
    If it has moved and your local commit isn't pushed yet, `git pull --rebase`
    cleanly replays it on top — no force-push needed. This is different from
    rebasing your commits onto an updated `main`: that rewrites history you
-   may have already pushed, which needs `git push --force-with-lease` —
-   don't do that without asking the user first, per this repo's git safety
-   rules.
+   may have already pushed, which needs `git push --force-with-lease`.
+   Force-pushing rewrites shared history and can't be cleanly undone, so
+   don't do it without asking the user first, even if it would resolve a
+   push conflict.
 4. Reply to each inline comment thread explaining the fix (commit sha + what
    changed): `gh api repos/<owner>/<repo>/pulls/<n>/comments/<id>/replies -f body=...`.
    A review's top-level body isn't a thread — if it needs a response, post a
