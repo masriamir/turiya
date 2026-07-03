@@ -75,8 +75,9 @@ to drive a PR to mergeable state, when asked to "address PR comments" or
 1. Fetch feedback from both PR review resources, which are different things:
    `gh api repos/<owner>/<repo>/pulls/<n>/comments` returns inline code
    review comments, each anchored to a resolvable GraphQL `reviewThread`;
-   `.../reviews` returns review objects (approval/state + an optional
-   top-level body) that are **not** threads and have no resolve mechanism.
+   `gh api repos/<owner>/<repo>/pulls/<n>/reviews` returns review objects
+   (approval/state + an optional top-level body) that are **not** threads
+   and have no resolve mechanism.
 2. Fix each comment in code, with tests where applicable, and run the full
    gate before committing.
 3. Commit and push. If the remote branch has moved on (e.g. `main` got
