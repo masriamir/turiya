@@ -32,7 +32,7 @@ dashboard, notifications, integrity automation) import `operations` +
 | `src/turiya/templates/launchd.plist.tmpl` | launchd plist template, rendered via stdlib `string.Template` — de-hardcoded (item 2), no jinja2 dependency. |
 | `src/turiya/cli.py` | Thin Typer app; maps `backup`/`restore`/`status`/`query`/`setup`/`teardown` subcommands to `operations.*.run`; console entry point `turiya`. |
 | `README.md` | User-facing usage docs. |
-| `.copilot-instructions.md` | Copilot-facing project instructions — this file's counterpart. |
+| `.github/copilot-instructions.md` | Copilot-facing project instructions — this file's counterpart. |
 
 The original bash v1.0.0 implementation (shell backup/restore/status/query
 runners, the setup/teardown shell scripts, shared shell helper libraries, the
