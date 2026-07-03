@@ -46,6 +46,12 @@ def set_password(cfg: Config, password: str) -> None:
             cfg.keychain.service,
             "-w",
             password,
+            # Allow silent (non-interactive) reads: the scheduled backup fetches
+            # this from a LaunchAgent with no one present to answer a prompt.
+            "-A",
+            # Update in place if the item already exists, so re-running
+            # `turiya setup` (e.g. to pick up a new -A flag) is idempotent.
+            "-U",
         ],
         capture_output=True,
         text=True,

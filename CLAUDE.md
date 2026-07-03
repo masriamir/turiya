@@ -28,9 +28,10 @@ dashboard, notifications, integrity automation) import `operations` +
 | `src/turiya/operations/restore.py` | `run(config, *, repo, snapshot, target, include, pattern, glob, exclude) -> bool`. Guided restore mapped to restic's native restore flags. Defines `resolve_repo`, reused by `query`. |
 | `src/turiya/operations/status.py` | `run(config, *, mode, include, pattern, glob, exclude) -> bool`. Snapshot inspection across all configured repos; `mode` is `latest`/`all`/`check`. |
 | `src/turiya/operations/query.py` | `run(config, *, repo, since, until, find, versions, json_output) -> bool`. Snapshot search: date range, file/glob find, per-file version history. |
-| `src/turiya/operations/setup.py` | `run(config, *, password=None, program=None)` / `teardown(config)`. Keychain prompt, rclone remote check, restic repo init, launchd plist install/removal, pmset. |
+| `src/turiya/operations/setup.py` | `run(config, *, password=None, program=None)` / `teardown(config)`. Keychain prompt, rclone remote check, restic repo init, launchd plist install/removal, pmset. `default_program()` resolves the launchd `ProgramArguments` to the `uv tool`-installed `turiya` binary (via `uv tool dir --bin`), raising `SchedulingError` if it isn't installed yet — see `Makefile`. |
 | `src/turiya/templates/launchd.plist.tmpl` | launchd plist template, rendered via stdlib `string.Template` — de-hardcoded (item 2), no jinja2 dependency. |
 | `src/turiya/cli.py` | Thin Typer app; maps `backup`/`restore`/`status`/`query`/`setup`/`teardown` subcommands to `operations.*.run`; console entry point `turiya`. |
+| `Makefile` | `install` (`uv tool install . --reinstall`, pins `turiya` on `PATH` — required before `turiya setup`, see `operations/setup.py`), `dev` (`uv sync`), `gates` (mirrors CI). The installed `turiya` and `uv run turiya` are the same entry point via two separate environments (a pinned `uv tool` env vs. the project `.venv`). |
 | `README.md` | User-facing usage docs. |
 | `.github/copilot-instructions.md` | Copilot-facing project instructions — this file's counterpart. |
 

@@ -43,6 +43,18 @@ def test_earliest_wake_time_subtracts_offset() -> None:
     assert scheduling.earliest_wake_time(cfg) == (9, 55)
 
 
+def test_render_plist_path_covers_intel_and_apple_silicon_homebrew() -> None:
+    cfg = config.load(FIXTURE)
+    xml = scheduling.render_plist(
+        cfg,
+        Schedule(weekday=None, hour=3, minute=30),
+        label="x",
+        program=["turiya", "backup"],
+    )
+    assert "/opt/homebrew/bin" in xml
+    assert "/usr/local/bin" in xml
+
+
 def test_render_plist_escapes_xml_special_chars() -> None:
     import plistlib
 
