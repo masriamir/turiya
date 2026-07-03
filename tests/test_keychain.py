@@ -46,3 +46,17 @@ def test_get_password_failure_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(subprocess, "run", _fail)
     with pytest.raises(KeychainError, match="Keychain"):
         keychain.get_password(_cfg())
+
+
+def test_set_password_allows_silent_access(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[list[str]] = []
+
+    def _fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+    keychain.set_password(_cfg(), "hunter2")
+    assert calls[0][0] == "security"
+    assert "add-generic-password" in calls[0]
+    assert "-A" in calls[0]

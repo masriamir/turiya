@@ -11,14 +11,14 @@ Targets: **Google Drive**, **Dropbox**, **pCloud** (and optionally Mega).
 ## Quick Start
 
 ```bash
-brew install restic rclone
-uv sync                                          # or: uv tool install .
+brew install restic rclone uv
+make install                                     # uv tool install . — puts `turiya` on PATH
 cp config.example.toml ~/.config/turiya/config.toml
 $EDITOR ~/.config/turiya/config.toml             # adjust sources, excludes, retention, schedule
 rclone config                                    # create remotes matching your config's [[repo]] entries
-uv run turiya setup                              # Keychain password, repo init, launchd, pmset
-uv run turiya backup --dry-run                   # sanity check
-uv run turiya backup                             # first real backup
+turiya setup                                     # Keychain password, repo init, launchd, pmset
+turiya backup --dry-run                          # sanity check
+turiya backup                                    # first real backup
 ```
 
 ---
@@ -30,6 +30,7 @@ uv run turiya backup                             # first real backup
 - `turiya setup` reads the config and wires everything up (Keychain, rclone check, repo init, launchd, pmset)
 - `turiya backup` is what launchd runs — it loads the config, pulls the password from Keychain, and backs up to all configured repos
 - The generated launchd `.plist` (gitignored) is rendered from `src/turiya/templates/launchd.plist.tmpl` by `turiya setup`
+- `turiya setup` pins the scheduled job to the `uv tool`-installed `turiya` binary (resolved via `uv tool dir --bin`), so run `make install` **before** `turiya setup` — see [Bootstrap](#bootstrap)
 
 ---
 
@@ -48,12 +49,22 @@ You'll also need [uv](https://docs.astral.sh/uv/) to install and run the package
 From the repository root:
 
 ```bash
-uv sync                  # creates .venv and installs turiya + dependencies
-# or, to install turiya as a standalone CLI tool:
-uv tool install .
+make install              # uv tool install . --reinstall — pins `turiya` on PATH
+uv tool update-shell      # one-time, if ~/.local/bin isn't already on PATH
 ```
 
-With `uv sync`, run commands as `uv run turiya ...` (or `uv run python -m turiya ...`). With `uv tool install .`, the `turiya` command is available directly on `PATH`.
+This installs a **pinned snapshot** of the package into an isolated `uv`-managed
+tool environment (not the project `.venv`) and drops a `turiya` shim into
+`uv tool dir --bin` (typically `~/.local/bin`). It's a real copy, not a live
+link to your working copy — the scheduled backup stays correct even if the
+repo is moved or mid-edit. `turiya` then works from any directory. `turiya
+setup` resolves and bakes this installed path into the launchd job, so
+**install before you run `setup`**; re-run `make install` after pulling
+changes or making local edits you want the installed command to pick up.
+
+Contributing to the code itself uses a separate, unpinned flow — see
+[`CONTRIBUTING.md`](CONTRIBUTING.md): `uv sync` creates `.venv`, and you run
+commands as `uv run turiya ...` there so every edit is reflected immediately.
 
 ---
 
@@ -74,33 +85,35 @@ With `uv sync`, run commands as `uv run turiya ...` (or `uv run python -m turiya
 
 2. **Create your config** — copy `config.example.toml` to `~/.config/turiya/config.toml` and adjust source directories, exclusions, retention policy, and schedule to taste. Everything is documented inline.
 
-3. **Run setup**:
+3. **Run setup** (after `make install` — see [Bootstrap](#bootstrap)):
    ```bash
-   uv run turiya setup
+   turiya setup
    ```
-   It prompts for your restic password and stores it in macOS Keychain (or pass `--password`); verifies all configured rclone remotes exist; initializes any uninitialized restic repos; renders and installs the launchd plist(s); loads the launchd job(s); and sets a `pmset` wake schedule so the machine wakes before the earliest configured backup time.
+   It prompts for your restic password and stores it in macOS Keychain with silent unattended-read access (or pass `--password`); verifies all configured rclone remotes exist; initializes any uninitialized restic repos; renders and installs the launchd plist(s), pinned to the installed `turiya` command; loads the launchd job(s); and sets a `pmset` wake schedule so the machine wakes before the earliest configured backup time. If `turiya` isn't installed on `PATH` yet, `setup` fails with a clear error rather than silently falling back to a fragile invocation — run `make install` first.
 
 4. **Verify with a dry run, then a real backup**:
    ```bash
-   uv run turiya backup --dry-run
-   uv run turiya backup
+   turiya backup --dry-run
+   turiya backup
    ```
 
 ---
 
 ## CLI reference
 
-Every subcommand has full `--help` via Typer, e.g. `uv run turiya backup --help`.
+Every subcommand has full `--help` via Typer, e.g. `turiya backup --help`.
+(Contributors running from a working copy without `make install`: prefix
+every command below with `uv run`.)
 
 ### `turiya backup`
 
 ```bash
-uv run turiya backup                                  # back up all configured sources
-uv run turiya backup --dry-run                        # dry run, no changes
-uv run turiya backup --include ~/Documents/taxes      # back up only this path, this run
-uv run turiya backup --pattern 'Documents/*/invoices' # back up paths matching this restic-style pattern
-uv run turiya backup --glob '*.pdf'                   # back up only files matching this filename glob
-uv run turiya backup --exclude '*.iso'                # add an extra exclude pattern, this run only
+turiya backup                                  # back up all configured sources
+turiya backup --dry-run                        # dry run, no changes
+turiya backup --include ~/Documents/taxes      # back up only this path, this run
+turiya backup --pattern 'Documents/*/invoices' # back up paths matching this restic-style pattern
+turiya backup --glob '*.pdf'                   # back up only files matching this filename glob
+turiya backup --exclude '*.iso'                # add an extra exclude pattern, this run only
 ```
 
 `--include`/`--pattern`/`--glob` are repeatable and combinable; when any are given, they **replace** the configured `sources` for that run (the scheduled weekly backup, run with no flags, always uses the full `sources` list). `--exclude` is repeatable and adds to the configured `excludes` for that run only.
@@ -108,13 +121,13 @@ uv run turiya backup --exclude '*.iso'                # add an extra exclude pat
 ### `turiya restore`
 
 ```bash
-uv run turiya restore --target /tmp/restore                          # restore latest snapshot from the primary repo
-uv run turiya restore --repo dropbox --target /tmp/restore           # use a specific remote
-uv run turiya restore --snapshot abc12345 --target /tmp/restore      # restore a specific snapshot ID
-uv run turiya restore --include ~/Documents/invoice.pdf --target /tmp/restore
-uv run turiya restore --pattern 'Documents/*/invoices' --target /tmp/restore
-uv run turiya restore --glob '*.pdf' --target /tmp/restore
-uv run turiya restore --exclude '*.tmp' --target /tmp/restore
+turiya restore --target /tmp/restore                          # restore latest snapshot from the primary repo
+turiya restore --repo dropbox --target /tmp/restore           # use a specific remote
+turiya restore --snapshot abc12345 --target /tmp/restore      # restore a specific snapshot ID
+turiya restore --include ~/Documents/invoice.pdf --target /tmp/restore
+turiya restore --pattern 'Documents/*/invoices' --target /tmp/restore
+turiya restore --glob '*.pdf' --target /tmp/restore
+turiya restore --exclude '*.tmp' --target /tmp/restore
 ```
 
 `--target` is required. `--include`/`--pattern`/`--glob` are repeatable and all map to restic's native include matcher (a pattern containing `/` is path-anchored, a bare pattern matches the filename at any depth). `--exclude` is repeatable.
@@ -122,13 +135,13 @@ uv run turiya restore --exclude '*.tmp' --target /tmp/restore
 ### `turiya status`
 
 ```bash
-uv run turiya status                          # latest snapshot per repo (--mode latest, the default)
-uv run turiya status --mode all               # all snapshots
-uv run turiya status --mode check             # integrity check (slow)
-uv run turiya status --include ~/Documents    # only snapshots whose source paths include this exact path
-uv run turiya status --pattern 'Doc*'         # only snapshots with a source path matching this pattern
-uv run turiya status --glob 'Documents'       # only snapshots whose source path's basename matches
-uv run turiya status --exclude Music          # drop snapshots matching this pattern
+turiya status                          # latest snapshot per repo (--mode latest, the default)
+turiya status --mode all               # all snapshots
+turiya status --mode check             # integrity check (slow)
+turiya status --include ~/Documents    # only snapshots whose source paths include this exact path
+turiya status --pattern 'Doc*'         # only snapshots with a source path matching this pattern
+turiya status --glob 'Documents'       # only snapshots whose source path's basename matches
+turiya status --exclude Music          # drop snapshots matching this pattern
 ```
 
 Targeting flags filter *which snapshots are listed*, by the top-level source paths recorded on each snapshot — they don't search file contents inside a snapshot. For that, use `turiya query`.
@@ -136,12 +149,12 @@ Targeting flags filter *which snapshots are listed*, by the top-level source pat
 ### `turiya query`
 
 ```bash
-uv run turiya query --since 2026-01-01 --until 2026-06-01   # snapshots in a date range
-uv run turiya query --find ~/Documents/taxes/2025.pdf       # which snapshot(s) contain this file
-uv run turiya query --find '*.pdf'                          # which snapshot(s) contain files matching this glob
-uv run turiya query --versions ~/Documents/notes.md         # every version of this file across snapshots, oldest first
-uv run turiya query --repo dropbox --versions '*.pdf'       # restrict the search to one repo
-uv run turiya query --find notes.md --json                  # raw JSON output instead of a formatted table
+turiya query --since 2026-01-01 --until 2026-06-01   # snapshots in a date range
+turiya query --find ~/Documents/taxes/2025.pdf       # which snapshot(s) contain this file
+turiya query --find '*.pdf'                          # which snapshot(s) contain files matching this glob
+turiya query --versions ~/Documents/notes.md         # every version of this file across snapshots, oldest first
+turiya query --repo dropbox --versions '*.pdf'       # restrict the search to one repo
+turiya query --find notes.md --json                  # raw JSON output instead of a formatted table
 ```
 
 Exactly one of `--since`/`--until`, `--find`, or `--versions` is required per invocation. `--repo` defaults to searching all configured repos.
@@ -149,9 +162,9 @@ Exactly one of `--since`/`--until`, `--find`, or `--versions` is required per in
 ### `turiya setup` / `turiya teardown`
 
 ```bash
-uv run turiya setup                     # Keychain prompt, rclone check, repo init, launchd + pmset install
-uv run turiya setup --password '...'    # non-interactive Keychain password
-uv run turiya teardown                  # unload launchd job(s), remove the pmset wake schedule
+turiya setup                     # Keychain prompt, rclone check, repo init, launchd + pmset install
+turiya setup --password '...'    # non-interactive Keychain password
+turiya teardown                  # unload launchd job(s), remove the pmset wake schedule
 ```
 
 `setup` is idempotent — safe to re-run any time your config changes (e.g. a new schedule or repo). **`teardown` does not touch your restic repos on the cloud providers or remove logs.**
@@ -197,7 +210,7 @@ Each line of a `.jsonl` file is a standalone JSON object, so any JSON-aware tool
 ## Uninstall
 
 ```bash
-uv run turiya teardown
+turiya teardown
 ```
 
 Removes the launchd job(s) and pmset schedule. **Does not touch your restic repos on the cloud providers.**
@@ -211,6 +224,7 @@ turiya/
 ├── config.example.toml                      # ← copy to ~/.config/turiya/config.toml
 ├── pyproject.toml                           # package metadata + tool config (ruff/mypy/ty/pytest)
 ├── uv.lock
+├── Makefile                                 # install (uv tool install), dev (uv sync), gates (CI parity)
 ├── src/turiya/
 │   ├── __init__.py
 │   ├── __main__.py                          # `python -m turiya` entry point
@@ -247,6 +261,8 @@ turiya/
 - rclone OAuth tokens live in `~/.config/rclone/rclone.conf` — keep this out of version control
 - The generated `.plist` is gitignored since it contains your absolute home path
 - `~/.config/turiya/config.toml` is user-local and not tracked by git — only `config.example.toml` is committed
+- `turiya setup` stores the Keychain item with silent (non-interactive) read access, so the scheduled backup never blocks on an unanswered access prompt. This is a deliberate trade-off: any process running as you can read the restic password without a prompt — the same as being able to invoke `security` yourself. The password never leaves Keychain for a file.
+- The scheduled backup requires an **active login session** (an unlocked login keychain) to authenticate; a run that fires while logged out or at the login window will fail to read the password. `pmset` wakes the machine but doesn't log you in.
 
 ---
 
@@ -266,16 +282,20 @@ Configurable under `[retention]` in your config.
 ## Troubleshooting
 
 **`rclone` or `restic` not found when launchd runs**
-The `PATH` in the rendered plist includes `/usr/local/bin` (Homebrew Intel default). If you installed via a non-standard path (e.g. Apple Silicon's `/opt/homebrew/bin`), adjust `src/turiya/templates/launchd.plist.tmpl` and re-run `turiya setup`.
+The rendered plist's `PATH` covers both Homebrew locations (`/opt/homebrew/bin` for Apple Silicon, `/usr/local/bin` for Intel). If you installed `restic`/`rclone` somewhere else entirely, adjust `src/turiya/templates/launchd.plist.tmpl` and re-run `turiya setup`.
+
+**`turiya setup` fails with "turiya is not installed on PATH"**
+Run `make install` (`uv tool install .`) first, then re-run `turiya setup` — the scheduled job is pinned to the installed command, so it must exist before setup can resolve it.
 
 **Backup didn't run at the scheduled time**
 Check that the machine was awake — `pmset` should handle this, but verify with:
 ```bash
 pmset -g sched
 ```
+Also confirm you were **logged in** at the scheduled time: the backup reads the restic password from the login keychain, which is locked while logged out or at the login window.
 
 **Keychain password prompt appears during backup**
-macOS may prompt to allow `security` to access the keychain on first run. Click **Always Allow** to prevent future prompts.
+As of 2.1.0, `turiya setup` stores the Keychain item with silent access (`-A`), so this shouldn't happen on a fresh setup. If you're seeing it on an install from before 2.1.0, re-run `turiya setup` (or `security add-generic-password ... -A` by hand) to update the item's ACL. If it still prompts, click **Always Allow** to unblock the current run.
 
 **Repo initialisation fails**
 Usually an rclone auth issue. Re-run `rclone config reconnect <remote>:` for the affected provider.

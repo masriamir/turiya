@@ -3,16 +3,41 @@
 from __future__ import annotations
 
 import subprocess
-import sys
+from pathlib import Path
 
 from .. import keychain, rclone, scheduling
 from ..config import Config
-from ..errors import RcloneError, ResticError
+from ..errors import RcloneError, ResticError, SchedulingError
 from ..restic import run_json
 
 
+def _uv_tool_bin() -> Path | None:
+    try:
+        result = subprocess.run(
+            ["uv", "tool", "dir", "--bin"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except OSError:
+        return None
+    except subprocess.CalledProcessError:
+        return None
+    out = result.stdout.strip()
+    return Path(out) if out else None
+
+
 def default_program() -> list[str]:
-    return [sys.executable, "-m", "turiya", "backup"]
+    bin_dir = _uv_tool_bin() or Path("~/.local/bin").expanduser()
+    shim = bin_dir / "turiya"
+    if not shim.exists():
+        raise SchedulingError(
+            f"turiya is not installed on PATH (no executable at {shim}). "
+            "Run `make install` (`uv tool install .`) before `turiya setup`, so "
+            "the scheduled job is pinned to the installed command. "
+            "To bake a specific path instead, pass program= to setup.run()."
+        )
+    return [str(shim), "backup"]
 
 
 def _repo_initialized(url: str, password: str) -> bool:

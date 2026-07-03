@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-07-02
+
+### Added
+- `Makefile` with `install`/`dev`/`gates` targets; `make install` installs
+  `turiya` on `PATH` via a pinned `uv tool install .`.
+
+### Changed
+- The scheduled launchd job now invokes the `uv tool`-installed `turiya`
+  binary (resolved from `uv tool dir --bin` at `turiya setup` time) instead of
+  the `.venv`-pinned `sys.executable -m turiya`, so it survives venv
+  recreation and repo moves. `turiya setup` now raises a clear error if
+  `turiya` isn't installed on `PATH` yet, instead of silently falling back to
+  the fragile `.venv` invocation.
+- `keychain.set_password` stores the restic password with `-A` (allow silent
+  access) so the unattended scheduled backup's Keychain read never prompts.
+  Accepted trade-off: any process running as the user can read the password
+  without a prompt; the scheduled backup requires an active login session
+  (an unlocked login keychain).
+- The rendered launchd plist's `PATH` now includes `/opt/homebrew/bin`
+  alongside `/usr/local/bin`, so `restic`/`rclone` resolve on both Apple
+  Silicon and Intel.
+
 ## [2.0.0] - 2026-07-02
 
 ### Changed

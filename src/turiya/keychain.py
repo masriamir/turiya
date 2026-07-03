@@ -46,6 +46,9 @@ def set_password(cfg: Config, password: str) -> None:
             cfg.keychain.service,
             "-w",
             password,
+            # Allow silent (non-interactive) reads: the scheduled backup fetches
+            # this from a LaunchAgent with no one present to answer a prompt.
+            "-A",
         ],
         capture_output=True,
         text=True,
