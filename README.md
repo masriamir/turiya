@@ -284,8 +284,8 @@ Configurable under `[retention]` in your config.
 **`rclone` or `restic` not found when launchd runs**
 The rendered plist's `PATH` covers both Homebrew locations (`/opt/homebrew/bin` for Apple Silicon, `/usr/local/bin` for Intel). If you installed `restic`/`rclone` somewhere else entirely, adjust `src/turiya/templates/launchd.plist.tmpl` and re-run `turiya setup`.
 
-**`turiya setup` fails with "turiya is not installed on PATH"**
-Run `make install` (`uv tool install .`) first, then re-run `turiya setup` — the scheduled job is pinned to the installed command, so it must exist before setup can resolve it.
+**`turiya setup` fails with "turiya is not installed (no executable file at ...)"**
+Run `make install` (`uv tool install .`) first, then re-run `turiya setup` — the scheduled job is pinned to the installed command, so it must exist (and be executable) before setup can resolve it.
 
 **Backup didn't run at the scheduled time**
 Check that the machine was awake — `pmset` should handle this, but verify with:

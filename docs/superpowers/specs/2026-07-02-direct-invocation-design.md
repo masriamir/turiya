@@ -139,9 +139,9 @@ def _uv_tool_bin() -> Path | None:
 def default_program() -> list[str]:
     bin_dir = _uv_tool_bin() or Path("~/.local/bin").expanduser()
     shim = bin_dir / "turiya"
-    if not shim.exists():
+    if not shim.is_file() or not os.access(shim, os.X_OK):
         raise SchedulingError(
-            f"turiya is not installed on PATH (no executable at {shim}). "
+            f"turiya is not installed (no executable file at {shim}). "
             "Run `make install` (`uv tool install .`) before `turiya setup`, so "
             "the scheduled job is pinned to the installed command. "
             "To bake a specific path instead, pass program= to setup.run()."
