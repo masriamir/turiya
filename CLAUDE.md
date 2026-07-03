@@ -82,15 +82,14 @@ to drive a PR to mergeable state, when asked to "address PR comments" or
 3. Commit and push. If the remote branch has moved on (e.g. `main` got
    merged in), `git pull --rebase` before pushing rather than force-pushing.
 4. Reply to each inline comment thread explaining the fix (commit sha + what
-   changed): `gh api repos/<owner>/<repo>/pulls/<n>/comments/<id>/replies -f
-   body=...`. A review's top-level body isn't a thread — if it needs a
-   response, post a normal PR comment instead (`gh pr comment <n> --body
-   ...`, or `gh api repos/<owner>/<repo>/issues/<n>/comments`).
+   changed): `gh api repos/<owner>/<repo>/pulls/<n>/comments/<id>/replies -f body=...`.
+   A review's top-level body isn't a thread — if it needs a response, post a
+   normal PR comment instead (`gh pr comment <n> --body ...`, or
+   `gh api repos/<owner>/<repo>/issues/<n>/comments`).
 5. Resolve each inline comment thread with the GraphQL `resolveReviewThread`
    mutation (the thread's node id comes from a `reviewThreads` GraphQL
    query, not the REST comment id). Review bodies have nothing to resolve.
-6. Re-request a Copilot review: `gh pr edit <n> --add-reviewer
-   copilot-pull-request-reviewer`.
+6. Re-request a Copilot review: `gh pr edit <n> --add-reviewer copilot-pull-request-reviewer`.
 7. Wait for the new review. If it has new comments, repeat from step 2.
 8. When a re-review comes back clean, stop and hand back for manual review.
    Never merge the PR yourself — that decision is always the user's.
