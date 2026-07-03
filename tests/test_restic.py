@@ -95,3 +95,21 @@ def test_stream_terminates_process_on_early_close(monkeypatch: pytest.MonkeyPatc
     gen.close()  # triggers the finally
     assert fake.terminated is True
     assert fake.closed is True
+
+
+def test_stream_raises_resticerror_when_no_stdout(monkeypatch: pytest.MonkeyPatch) -> None:
+    from turiya.errors import ResticError
+
+    class NoStdoutPopen:
+        stdout = None
+
+        def poll(self) -> int | None:
+            return 0
+
+        def wait(self, timeout: float | None = None) -> int:
+            return 0
+
+    monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: NoStdoutPopen())
+    gen = restic.stream("repo", ["backup"], password="x")
+    with pytest.raises(ResticError):
+        next(gen)

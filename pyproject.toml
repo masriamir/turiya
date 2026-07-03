@@ -28,7 +28,17 @@ line-length = 100
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM"]
+select = ["E", "F", "I", "UP", "B", "SIM", "S"]
+# S603 fires on every subprocess.run regardless of safety (detects nothing on
+# its own); S607 fires because we resolve system tools (restic/rclone/launchctl/
+# sudo/find/security) via PATH by design. The injection-detecting rules in the S
+# family (S602 shell=True, S604, S605, S609) stay active as a guardrail.
+ignore = ["S603", "S607"]
+
+[tool.ruff.lint.per-file-ignores]
+# Test code legitimately uses asserts (S101), dummy credentials (S105/S106),
+# hardcoded temp paths (S108), and spawns subprocesses (S603/S607).
+"tests/**" = ["S101", "S105", "S106", "S108", "S603", "S607"]
 
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = ["typer.Option", "typer.Argument"]
