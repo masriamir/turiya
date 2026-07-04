@@ -1,6 +1,6 @@
 # ADR-0001: Security Scanning Posture
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-07-03
 - **Deciders:** @masriamir
 - **Supersedes:** —
