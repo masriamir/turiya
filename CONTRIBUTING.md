@@ -17,6 +17,13 @@ Do not activate the venv manually. Add runtime deps with `uv add`, dev deps
 with `uv add --dev`; `uv.lock` is committed and must stay in sync with
 `pyproject.toml`.
 
+This is the contributor/dev workflow and stays canonical for the gates and
+test loop, even though end users run `turiya ...` directly (see the
+`Makefile`/README "Install" section). If you want the on-PATH `turiya`
+command to reflect your local changes, run `make install` to refresh the
+pinned install — `uv run turiya ...` always reflects source edits immediately
+and needs no extra step.
+
 ## Required gates
 
 All four must be clean before a PR can merge (CI enforces them as the `gates`

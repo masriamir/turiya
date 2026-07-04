@@ -28,9 +28,10 @@ dashboard, notifications, integrity automation) import `operations` +
 | `src/turiya/operations/restore.py` | `run(config, *, repo, snapshot, target, include, pattern, glob, exclude) -> bool`. Guided restore mapped to restic's native restore flags. Defines `resolve_repo`, reused by `query`. |
 | `src/turiya/operations/status.py` | `run(config, *, mode, include, pattern, glob, exclude) -> bool`. Snapshot inspection across all configured repos; `mode` is `latest`/`all`/`check`. |
 | `src/turiya/operations/query.py` | `run(config, *, repo, since, until, find, versions, json_output) -> bool`. Snapshot search: date range, file/glob find, per-file version history. |
-| `src/turiya/operations/setup.py` | `run(config, *, password=None, program=None)` / `teardown(config)`. Keychain prompt, rclone remote check, restic repo init, launchd plist install/removal, pmset. |
+| `src/turiya/operations/setup.py` | `run(config, *, password=None, program=None)` / `teardown(config)`. Keychain prompt, rclone remote check, restic repo init, launchd plist install/removal, pmset. `default_program()` resolves the launchd `ProgramArguments` to the `uv tool`-installed `turiya` binary (via `uv tool dir --bin`), raising `SchedulingError` if it isn't installed yet — see `Makefile`. |
 | `src/turiya/templates/launchd.plist.tmpl` | launchd plist template, rendered via stdlib `string.Template` — de-hardcoded (item 2), no jinja2 dependency. |
 | `src/turiya/cli.py` | Thin Typer app; maps `backup`/`restore`/`status`/`query`/`setup`/`teardown` subcommands to `operations.*.run`; console entry point `turiya`. |
+| `Makefile` | `install` (`uv tool install . --reinstall`, pins `turiya` on `PATH` — required before `turiya setup`, see `operations/setup.py`), `dev` (`uv sync`), `gates` (mirrors CI). The installed `turiya` and `uv run turiya` are the same entry point via two separate environments (a pinned `uv tool` env vs. the project `.venv`). |
 | `README.md` | User-facing usage docs. |
 | `.github/copilot-instructions.md` | Copilot-facing project instructions — this file's counterpart. |
 
@@ -65,6 +66,44 @@ from `main` and remains recoverable at the `v1.0.0` git tag.
 3. Add the file to the file map above and to `README.md`'s CLI reference.
 4. Write unit tests (subprocess mocked) and, if it touches restic, an integration test against a real temp repo fixture.
 5. Run the full gate (`pytest`, `ruff check`, `mypy`, `ty check`) before considering the change done.
+
+## Working a PR (Copilot review loop)
+
+This repo has GitHub Copilot's automatic PR review enabled. The standard way
+to drive a PR to mergeable state, when asked to "address PR comments" or
+"work on PR #N":
+
+1. Fetch feedback from both PR review resources, which are different things:
+   `gh api repos/<owner>/<repo>/pulls/<n>/comments` returns inline code
+   review comments, each anchored to a resolvable GraphQL `reviewThread`;
+   `gh api repos/<owner>/<repo>/pulls/<n>/reviews` returns review objects
+   (approval/state + an optional top-level body) that are **not** threads
+   and have no resolve mechanism.
+2. Fix each comment in code, with tests where applicable, and run the full
+   gate before committing.
+3. Commit. Before pushing, check whether the *PR branch's own remote tip*
+   has moved (e.g. someone pushed to it directly, or merged `main` into it
+   via the GitHub UI):
+   `git fetch origin <branch> -q && git log --oneline HEAD..origin/<branch>`.
+   If it has moved and your local commit isn't pushed yet, `git pull --rebase`
+   cleanly replays it on top — no force-push needed. This is different from
+   rebasing your commits onto an updated `main`: that rewrites history you
+   may have already pushed, which needs `git push --force-with-lease`.
+   Force-pushing rewrites shared history and can't be cleanly undone, so
+   don't do it without asking the user first, even if it would resolve a
+   push conflict.
+4. Reply to each inline comment thread explaining the fix (commit sha + what
+   changed): `gh api repos/<owner>/<repo>/pulls/<n>/comments/<id>/replies -f body=...`.
+   A review's top-level body isn't a thread — if it needs a response, post a
+   normal PR comment instead (`gh pr comment <n> --body ...`, or
+   `gh api repos/<owner>/<repo>/issues/<n>/comments`).
+5. Resolve each inline comment thread with the GraphQL `resolveReviewThread`
+   mutation (the thread's node id comes from a `reviewThreads` GraphQL
+   query, not the REST comment id). Review bodies have nothing to resolve.
+6. Re-request a Copilot review: `gh pr edit <n> --add-reviewer copilot-pull-request-reviewer`.
+7. Wait for the new review. If it has new comments, repeat from step 2.
+8. When a re-review comes back clean, stop and hand back for manual review.
+   Never merge the PR yourself — that decision is always the user's.
 
 ## Logging schema
 
