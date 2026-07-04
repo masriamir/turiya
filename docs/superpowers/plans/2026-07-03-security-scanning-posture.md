@@ -539,19 +539,26 @@ git commit -m "ci(security): add advisory OpenSSF Scorecard workflow and badge"
 
 **Interfaces:** none. This task realizes ADR §D. Several steps are `gh api` calls, not file changes; run them against `masriamir/turiya`.
 
-- [ ] **Step 1: Enable the two secret-scanning knobs**
+- [ ] **Step 1: Enable the two secret-scanning knobs — DEFERRED, do not run**
 
-Run:
+~~Run:~~
 ```bash
 gh api -X PATCH repos/masriamir/turiya \
   -f 'security_and_analysis[secret_scanning_non_provider_patterns][status]=enabled' \
   -f 'security_and_analysis[secret_scanning_validity_checks][status]=enabled'
 ```
-Verify:
+~~Verify:~~
 ```bash
 gh api repos/masriamir/turiya --jq '.security_and_analysis | {np: .secret_scanning_non_provider_patterns.status, vc: .secret_scanning_validity_checks.status}'
 ```
-Expected: `{"np":"enabled","vc":"enabled"}`.
+~~Expected: `{"np":"enabled","vc":"enabled"}`.~~
+
+**Deferred**: both `secret_scanning_non_provider_patterns` and
+`secret_scanning_validity_checks` require the GitHub Team/Enterprise "Secret
+Protection" plan; the PATCH above is a silent no-op on the current
+personal/free plan for this public repo (matches ADR §D). Skip this step —
+revisit only if the account plan changes. See
+`docs/adr/0001-security-scanning-posture.md` §D for the authoritative status.
 
 (Private vulnerability reporting was already enabled in Task 2 Step 4.)
 
