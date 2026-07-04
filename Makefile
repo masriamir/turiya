@@ -22,11 +22,17 @@ release: gates       ## Tag, push, and publish a GitHub release for the pyprojec
 	if [ -n "$$(git status --porcelain)" ]; then \
 		echo "error: working tree has uncommitted changes; commit or stash first" >&2; exit 1; \
 	fi; \
-	version=$$(grep -m1 '^version = ' pyproject.toml | sed -E 's/version = "(.*)"/\1/'); \
+	git fetch origin main --quiet; \
+	local_sha=$$(git rev-parse HEAD); \
+	remote_sha=$$(git rev-parse origin/main); \
+	if [ "$$local_sha" != "$$remote_sha" ]; then \
+		echo "error: local main ($$local_sha) is out of sync with origin/main ($$remote_sha); pull first" >&2; exit 1; \
+	fi; \
+	version=$$(sed -nE 's/^version = "([^"]*)"$$/\1/p' pyproject.toml | head -n1); \
 	if [ -z "$$version" ]; then echo "error: could not read version from pyproject.toml" >&2; exit 1; fi; \
 	tag="v$$version"; \
-	if git show-ref --verify --quiet "refs/tags/$$tag"; then \
-		echo "error: tag $$tag already exists" >&2; exit 1; \
+	if git show-ref --verify --quiet "refs/tags/$$tag" || git ls-remote --exit-code --tags origin "refs/tags/$$tag" >/dev/null 2>&1; then \
+		echo "error: tag $$tag already exists (locally or on origin)" >&2; exit 1; \
 	fi; \
 	notes_file=$$(mktemp); \
 	msg_file=$$(mktemp); \
