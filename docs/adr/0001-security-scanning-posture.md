@@ -127,13 +127,25 @@ These have no file representation and must be set in the GitHub UI/API. They are
 listed here so the posture is fully auditable:
 
 - [ ] Enable **private vulnerability reporting** (required by §B).
-- [ ] Enable secret scanning **non-provider patterns** (currently off).
-- [ ] Enable secret scanning **validity checks** (currently off).
+- [ ] ~~Enable secret scanning **non-provider patterns**~~ — **deferred**: requires
+      GitHub Team/Enterprise "Secret Protection" plan; confirmed via API (silent
+      no-op on PATCH) not available on the current personal/free plan for this
+      public repo. Revisit if the account plan changes.
+- [ ] ~~Enable secret scanning **validity checks**~~ — **deferred**: same plan
+      gate as above.
 - [ ] Create a **branch-protection ruleset** on `main` requiring, as **required
       status checks**: the CI `gates` job, CodeQL code-scanning results, the
       `zizmor` job, and the `dependency-review` job.
 - [ ] Require branches to be **up to date** before merging.
 - [ ] Require a pull request before merging (no direct pushes to `main`).
+
+**Note on ruleset layering:** this ADR's `required_status_checks` are applied via
+a dedicated ruleset ("main protection") created for this ADR. A separate,
+pre-existing ruleset ("main-protection", predating this ADR) already applies to
+`main` with its own rules (commit signing, squash-only merges, Copilot review,
+a CodeQL alert-severity threshold, code quality). GitHub unions the rules of all
+active rulesets targeting the same branch, so both apply simultaneously without
+conflict — this is intentional and no consolidation was needed.
 
 ### E. Rejected — with rationale (the anti-duplication core)
 
