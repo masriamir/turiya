@@ -7,6 +7,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: zizmor-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions: {}
 
 jobs:
@@ -14,8 +18,8 @@ jobs:
     name: zizmor
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      security-events: write
+      contents: read # required for actions/checkout to read the repository
+      security-events: write # required to upload the SARIF results to the Security tab
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
