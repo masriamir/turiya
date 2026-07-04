@@ -37,15 +37,6 @@ release: gates       ## Tag, push, and publish a GitHub release for the pyprojec
 	version=$$(sed -nE 's/^version = "([^"]*)"$$/\1/p' pyproject.toml | head -n1); \
 	if [ -z "$$version" ]; then echo "error: could not read version from pyproject.toml" >&2; exit 1; fi; \
 	tag="v$$version"; \
-	if git show-ref --verify --quiet "refs/tags/$$tag"; then \
-		echo "error: tag $$tag already exists locally" >&2; exit 1; \
-	fi; \
-	git ls-remote --exit-code --tags origin "refs/tags/$$tag" >/dev/null 2>&1 && remote_check=0 || remote_check=$$?; \
-	if [ "$$remote_check" -eq 0 ]; then \
-		echo "error: tag $$tag already exists on origin" >&2; exit 1; \
-	elif [ "$$remote_check" -ne 2 ]; then \
-		echo "error: could not verify whether tag $$tag exists on origin (git ls-remote exited $$remote_check)" >&2; exit 1; \
-	fi; \
 	notes_file=$$(mktemp); \
 	msg_file=$$(mktemp); \
 	trap 'rm -f "$$notes_file" "$$msg_file"' EXIT; \
@@ -56,8 +47,26 @@ release: gates       ## Tag, push, and publish a GitHub release for the pyprojec
 	if [ ! -s "$$notes_file" ]; then \
 		echo "error: no CHANGELOG.md entry found for version $$version (tag $$tag)" >&2; exit 1; \
 	fi; \
-	{ echo "$$tag"; echo; cat "$$notes_file"; } > "$$msg_file"; \
-	echo "Tagging and publishing $$tag..."; \
-	git tag -a "$$tag" --cleanup=verbatim -F "$$msg_file"; \
-	git push origin "$$tag"; \
+	git ls-remote --exit-code --tags origin "refs/tags/$$tag" >/dev/null 2>&1 && remote_check=0 || remote_check=$$?; \
+	if [ "$$remote_check" -ne 0 ] && [ "$$remote_check" -ne 2 ]; then \
+		echo "error: could not verify whether tag $$tag exists on origin (git ls-remote exited $$remote_check)" >&2; exit 1; \
+	fi; \
+	if [ "$$remote_check" -eq 0 ]; then \
+		git fetch origin "refs/tags/$$tag:refs/tags/$$tag" --quiet --force; \
+		existing_commit=$$(git rev-parse "refs/tags/$$tag^{commit}"); \
+		if [ "$$existing_commit" != "$$local_sha" ]; then \
+			echo "error: tag $$tag already exists on origin but points at $$existing_commit, not the current main ($$local_sha)" >&2; exit 1; \
+		fi; \
+		if gh release view "$$tag" >/dev/null 2>&1; then \
+			echo "$$tag already exists with a published release; nothing to do."; \
+			exit 0; \
+		fi; \
+		echo "Tag $$tag already exists on origin at the current commit but has no release -- publishing the release only."; \
+	else \
+		git tag -d "$$tag" >/dev/null 2>&1 || true; \
+		{ echo "$$tag"; echo; cat "$$notes_file"; } > "$$msg_file"; \
+		echo "Tagging and publishing $$tag..."; \
+		git tag -a "$$tag" --cleanup=verbatim -F "$$msg_file"; \
+		git push origin "$$tag"; \
+	fi; \
 	gh release create "$$tag" --title "$$tag" --notes-file "$$notes_file"
