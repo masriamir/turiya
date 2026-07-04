@@ -15,6 +15,12 @@ gates:              ## Run all required gates
 
 release: gates       ## Tag, push, and publish a GitHub release for the pyproject.toml version
 	@set -eu; \
+	if ! command -v gh >/dev/null 2>&1; then \
+		echo "error: gh CLI is not installed" >&2; exit 1; \
+	fi; \
+	if ! gh auth status >/dev/null 2>&1; then \
+		echo "error: gh is not authenticated (run 'gh auth login')" >&2; exit 1; \
+	fi; \
 	branch=$$(git rev-parse --abbrev-ref HEAD); \
 	if [ "$$branch" != "main" ]; then \
 		echo "error: release must be run from main (current branch: $$branch)" >&2; exit 1; \
