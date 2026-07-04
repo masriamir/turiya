@@ -143,9 +143,13 @@ listed here so the posture is fully auditable:
 a dedicated ruleset ("main protection") created for this ADR. A separate,
 pre-existing ruleset ("main-protection", predating this ADR) already applies to
 `main` with its own rules (commit signing, squash-only merges, Copilot review,
-a CodeQL alert-severity threshold, code quality). GitHub unions the rules of all
-active rulesets targeting the same branch, so both apply simultaneously without
-conflict — this is intentional and no consolidation was needed.
+a CodeQL alert-severity threshold, code quality), and its own
+`required_status_checks` rule also requires the `gates` context. GitHub unions
+the rules of all active rulesets targeting the same branch, so both apply
+simultaneously without conflict — this is intentional and no consolidation was
+needed. Note that both rulesets independently require the `gates` status
+check — this is a harmless overlap, not a conflict, since GitHub's unioned
+requirement is simply the check passing once.
 
 ### E. Rejected — with rationale (the anti-duplication core)
 
