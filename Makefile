@@ -37,8 +37,14 @@ release: gates       ## Tag, push, and publish a GitHub release for the pyprojec
 	version=$$(sed -nE 's/^version = "([^"]*)"$$/\1/p' pyproject.toml | head -n1); \
 	if [ -z "$$version" ]; then echo "error: could not read version from pyproject.toml" >&2; exit 1; fi; \
 	tag="v$$version"; \
-	if git show-ref --verify --quiet "refs/tags/$$tag" || git ls-remote --exit-code --tags origin "refs/tags/$$tag" >/dev/null 2>&1; then \
-		echo "error: tag $$tag already exists (locally or on origin)" >&2; exit 1; \
+	if git show-ref --verify --quiet "refs/tags/$$tag"; then \
+		echo "error: tag $$tag already exists locally" >&2; exit 1; \
+	fi; \
+	git ls-remote --exit-code --tags origin "refs/tags/$$tag" >/dev/null 2>&1 && remote_check=0 || remote_check=$$?; \
+	if [ "$$remote_check" -eq 0 ]; then \
+		echo "error: tag $$tag already exists on origin" >&2; exit 1; \
+	elif [ "$$remote_check" -ne 2 ]; then \
+		echo "error: could not verify whether tag $$tag exists on origin (git ls-remote exited $$remote_check)" >&2; exit 1; \
 	fi; \
 	notes_file=$$(mktemp); \
 	msg_file=$$(mktemp); \
