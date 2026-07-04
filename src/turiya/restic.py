@@ -85,9 +85,9 @@ def stream(
         env=_env(password),
     )
     saw_error = False
-    if proc.stdout is None:  # defensive: PIPE requested above, so this is unreachable in practice
-        raise ResticError("restic produced no output stream")
     try:
+        if proc.stdout is None:  # defensive: PIPE requested above, unreachable in practice
+            raise ResticError("restic produced no output stream")
         for line in proc.stdout:
             event = parse_event(line)
             if event is None:

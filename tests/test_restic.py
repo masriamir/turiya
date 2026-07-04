@@ -103,13 +103,29 @@ def test_stream_raises_resticerror_when_no_stdout(monkeypatch: pytest.MonkeyPatc
     class NoStdoutPopen:
         stdout = None
 
+        def __init__(self) -> None:
+            self._alive = True
+            self.terminated = False
+
         def poll(self) -> int | None:
-            return 0
+            return None if self._alive else 0
+
+        def terminate(self) -> None:
+            self.terminated = True
+            self._alive = False
 
         def wait(self, timeout: float | None = None) -> int:
+            self._alive = False
             return 0
 
-    monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: NoStdoutPopen())
+        def kill(self) -> None:
+            self._alive = False
+
+    fake = NoStdoutPopen()
+    monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: fake)
     gen = restic.stream("repo", ["backup"], password="x")
     with pytest.raises(ResticError):
         next(gen)
+    # The guard fires before the loop ever starts, but it must still be inside
+    # the try/finally so the still-running child gets terminated/cleaned up.
+    assert fake.terminated is True
