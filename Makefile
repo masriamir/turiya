@@ -15,6 +15,13 @@ gates:              ## Run all required gates
 
 release: gates       ## Tag, push, and publish a GitHub release for the pyproject.toml version
 	@set -eu; \
+	branch=$$(git rev-parse --abbrev-ref HEAD); \
+	if [ "$$branch" != "main" ]; then \
+		echo "error: release must be run from main (current branch: $$branch)" >&2; exit 1; \
+	fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "error: working tree has uncommitted changes; commit or stash first" >&2; exit 1; \
+	fi; \
 	version=$$(grep -m1 '^version = ' pyproject.toml | sed -E 's/version = "(.*)"/\1/'); \
 	if [ -z "$$version" ]; then echo "error: could not read version from pyproject.toml" >&2; exit 1; fi; \
 	tag="v$$version"; \
@@ -29,7 +36,7 @@ release: gates       ## Tag, push, and publish a GitHub release for the pyprojec
 		found { print } \
 	' CHANGELOG.md > "$$notes_file"; \
 	if [ ! -s "$$notes_file" ]; then \
-		echo "error: no CHANGELOG.md entry found for $$tag" >&2; exit 1; \
+		echo "error: no CHANGELOG.md entry found for version $$version (tag $$tag)" >&2; exit 1; \
 	fi; \
 	{ echo "$$tag"; echo; cat "$$notes_file"; } > "$$msg_file"; \
 	echo "Tagging and publishing $$tag..."; \
