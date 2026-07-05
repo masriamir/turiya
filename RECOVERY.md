@@ -27,6 +27,8 @@ a **replacement** Mac that needs the backed-up files restored onto it.
    ```bash
    brew install restic rclone uv
    ```
+   You'll also need `git` to clone the source in the next step — it ships
+   with the Xcode Command Line Tools (`xcode-select --install` if missing).
 
 2. **Get the `turiya` source and install it.** There's no PyPI package —
    clone the repository, then from its root:
@@ -77,8 +79,8 @@ a **replacement** Mac that needs the backed-up files restored onto it.
   clean up.
 - **Password not yet in Keychain:** fails with `Could not retrieve the
   restic password from the Keychain. Run \`turiya setup\`, or check
-  keychain.account/keychain.service in the config.` (exit code 1). Complete
-  step 5 above.
+  keychain.account/keychain.service in the config. (security exit <n>)`
+  (exit code 1). Complete step 5 above.
 
 ## Verify this actually works — don't just trust it
 
