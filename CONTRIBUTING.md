@@ -39,6 +39,15 @@ uv run ty check
 
 `uv run ruff format .` fixes formatting in place.
 
+## Releasing (maintainers)
+
+After bumping `version` in `pyproject.toml` and adding the matching entry to
+`CHANGELOG.md`, run `make release` from `main`. It reads the version from
+`pyproject.toml`, slices the corresponding `CHANGELOG.md` section for the
+release notes, then tags, pushes, and publishes a GitHub release — all in
+one step. `refs/tags/v*` are protected (no deletion, no force-push), so
+double-check the version and CHANGELOG entry before running it.
+
 ## Pull requests
 
 - Branch off `main`; direct pushes to `main` are blocked.
