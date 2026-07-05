@@ -2,6 +2,8 @@
 
 Automated weekly cloud backups using [Restic](https://restic.net/) and [rclone](https://rclone.org/), managed via macOS `launchd` and `pmset`.
 
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/masriamir/turiya/badge)](https://scorecard.dev/viewer/?uri=github.com/masriamir/turiya)
+
 Targets: **Google Drive**, **Dropbox**, **pCloud** (and optionally Mega).
 
 `turiya` is a library-first Python package: `backup`/`restore`/`status`/`query`/`setup`/`teardown` are all thin CLI wrappers around a typed, tested core (`turiya.config`, `turiya.operations.*`) that other tools can import directly.
