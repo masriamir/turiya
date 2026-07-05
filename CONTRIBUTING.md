@@ -2,7 +2,7 @@
 
 Thanks for your interest. turiya is a library-first Python 3.14 package; the
 architecture and conventions are documented in
-[`CLAUDE.md`](CLAUDE.md) — read it before making changes.
+[`CLAUDE.md`](.claude/CLAUDE.md) — read it before making changes.
 
 ## Development setup
 
