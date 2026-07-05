@@ -226,7 +226,7 @@ turiya/
 ├── config.example.toml                      # ← copy to ~/.config/turiya/config.toml
 ├── pyproject.toml                           # package metadata + tool config (ruff/mypy/ty/pytest)
 ├── uv.lock
-├── Makefile                                 # install (uv tool install), dev (uv sync), gates (CI parity)
+├── Makefile                                 # install (uv tool install), dev (uv sync), gates (CI parity), release (tag + publish)
 ├── src/turiya/
 │   ├── __init__.py
 │   ├── __main__.py                          # `python -m turiya` entry point
