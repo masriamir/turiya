@@ -121,23 +121,38 @@ setting — see §D).
 | **SHA-pin all third-party *and* first-party actions** (`actions/*`, `github/codeql-action/*`, etc.) to full commit SHAs, with a trailing `# vX.Y.Z` comment; Dependabot bumps them | every workflow file | n/a (hardening). Removes the retag-attack vector (threat #1). |
 | **OpenSSF Scorecard** — scheduled + on push to `main`, SARIF to Security tab, README trend badge | new `.github/workflows/scorecard.yml` | **Advisory** (see rationale in "Consequences"). |
 
+**Actions allow-list policy.** The repository's Actions permissions are set to
+`allowed_actions: selected`, restricting which third-party Actions may run at
+all — a distinct, additional supply-chain control beyond SHA-pinning, and
+arguably more effective against threat model item #1 (the CI supply chain),
+since it caps the blast radius of trust to an explicit allow-list rather than
+relying purely on pin-then-audit. Beyond GitHub-owned and verified-creator
+actions (allowed by default), the two patterns explicitly allowed are
+`astral-sh/setup-uv@*` and `zizmorcore/zizmor-action@*`. `zizmorcore/zizmor-action`
+is trusted because it is the zizmor project's own official GitHub Action
+wrapper (from the zizmor upstream project itself, not an unrelated third
+party), and it is needed because the `selected` allow-list would otherwise
+block it from running at all; invoking zizmor via a bare `pip`/`uvx` shell
+command instead (avoiding any third-party Action entirely) was considered and
+rejected in favor of the official Action for maintainability.
+
 ### D. Repository settings this ADR mandates (operational checklist)
 
 These have no file representation and must be set in the GitHub UI/API. They are
 listed here so the posture is fully auditable:
 
-- [ ] Enable **private vulnerability reporting** (required by §B).
+- [x] Enable **private vulnerability reporting** (required by §B).
 - [ ] ~~Enable secret scanning **non-provider patterns**~~ — **deferred**: requires
       GitHub Team/Enterprise "Secret Protection" plan; confirmed via API (silent
       no-op on PATCH) not available on the current personal/free plan for this
       public repo. Revisit if the account plan changes.
 - [ ] ~~Enable secret scanning **validity checks**~~ — **deferred**: same plan
       gate as above.
-- [ ] Create a **branch-protection ruleset** on `main` requiring, as **required
+- [x] Create a **branch-protection ruleset** on `main` requiring, as **required
       status checks**: the CI `gates` job, CodeQL code-scanning results, the
       `zizmor` job, and the `dependency-review` job.
-- [ ] Require branches to be **up to date** before merging.
-- [ ] Require a pull request before merging (no direct pushes to `main`).
+- [x] Require branches to be **up to date** before merging.
+- [x] Require a pull request before merging (no direct pushes to `main`).
 
 **Note on ruleset layering:** this ADR's `required_status_checks` are applied via
 a dedicated ruleset ("main protection") created for this ADR. A separate,
@@ -203,10 +218,11 @@ standing decision that removes the future design step.
   family surfaces 23 findings in `src/` and 121 in `tests/`, dominated by rules
   that carry no signal here: `S603` fires on *every* `subprocess.run`
   regardless of safety (it detects nothing on its own), `S607` fires because we
-  deliberately resolve system tools (`restic`/`rclone`/`launchctl`/`sudo`) via
-  `PATH`, and `S101` fires on every pytest `assert`. The value of enabling `S`
-  is the *latent* injection guardrail — `S602` (`shell=True`), `S604`, `S605`,
-  `S609` — which finds nothing today and stays active for future code.
+  deliberately resolve system tools (`restic`/`rclone`/`launchctl`/`sudo`/
+  `find`/`security`) via `PATH`, and `S101` fires on every pytest `assert`.
+  The value of enabling `S` is the *latent* injection guardrail — `S602`
+  (`shell=True`), `S604`, `S605`, `S609` — which finds nothing today and stays
+  active for future code.
   Convention, therefore:
   - Globally `ignore = ["S603", "S607"]` in `[tool.ruff.lint]`, each with a
     one-line rationale comment, rather than scattering 22 identical `# noqa`
