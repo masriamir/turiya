@@ -234,6 +234,14 @@ Removes the launchd job(s) and pmset schedule. **Does not touch your restic repo
 
 ---
 
+## Disaster recovery
+
+If the Mac running `turiya` is lost, dead, or wiped, see
+[`RECOVERY.md`](RECOVERY.md) for the step-by-step procedure to restore your
+backups onto a replacement machine.
+
+---
+
 ## Repository structure
 
 ```
