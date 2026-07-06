@@ -80,7 +80,7 @@ TURIYA_CONFIG=/nonexistent/config.toml uv run turiya restore --target /tmp/x
 # valid config, but no RESTIC_PASSWORD env and no matching Keychain item
 uv run turiya restore --target /tmp/x
 ```
-→ `Could not retrieve the restic password from the Keychain. Run `turiya setup`, or check keychain.account/keychain.service in the config. (security exit 44)`, exit code 1.
+→ ``Could not retrieve the restic password from the Keychain. Run `turiya setup`, or check keychain.account/keychain.service in the config. (security exit 44)``, exit code 1.
 
 (The Keychain *write* path — `security add-generic-password ... -A -U` — was
 not re-executed against the real login keychain to avoid writing a test
@@ -128,9 +128,13 @@ a **replacement** Mac that needs the backed-up files restored onto it.
 2. **Get the `turiya` source and install it.** There's no PyPI package —
    clone the repository, then from its root:
    ```bash
-   make install
+   make install              # pins `turiya` on PATH
+   uv tool update-shell      # one-time, if ~/.local/bin isn't already on PATH
    ```
-   This pins `turiya` on `PATH` (see `README.md`'s Bootstrap section).
+   On a fresh machine `~/.local/bin` (the `uv` tool bin directory) usually
+   isn't on `PATH` yet — without `uv tool update-shell` the later steps fail
+   with `turiya: command not found` even though install succeeded. See
+   `README.md`'s Bootstrap section.
 
 3. **Recreate `~/.config/turiya/config.toml`** — copy back your saved copy
    (recommended), or copy `config.example.toml` and fill in your
@@ -172,9 +176,9 @@ a **replacement** Mac that needs the backed-up files restored onto it.
 - **No `config.toml` at all:** every `turiya` command fails immediately with
   `Config file not found at <path>` (exit code 1) — no partial state to
   clean up.
-- **Password not yet in Keychain:** fails with `Could not retrieve the
-  restic password from the Keychain. Run \`turiya setup\`, or check
-  keychain.account/keychain.service in the config.` (exit code 1). Complete
+- **Password not yet in Keychain:** fails with ``Could not retrieve the
+  restic password from the Keychain. Run `turiya setup`, or check
+  keychain.account/keychain.service in the config.`` (exit code 1). Complete
   step 5 above.
 
 ## Verify this actually works — don't just trust it

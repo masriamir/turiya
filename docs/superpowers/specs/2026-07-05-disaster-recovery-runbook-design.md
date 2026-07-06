@@ -1,7 +1,7 @@
 # Disaster Recovery Runbook — Design
 
 Date: 2026-07-05
-Status: Proposed
+Status: Accepted
 Sub-project: post-v2.1.0 documentation — closes the "restore onto a
 replacement Mac" gap identified during a security/gap-analysis review.
 
