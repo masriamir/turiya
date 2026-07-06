@@ -129,3 +129,89 @@ def test_stream_raises_resticerror_when_no_stdout(monkeypatch: pytest.MonkeyPatc
     # The guard fires before the loop ever starts, but it must still be inside
     # the try/finally so the still-running child gets terminated/cleaned up.
     assert fake.terminated is True
+
+
+def test_find_path_returns_single_match(monkeypatch: pytest.MonkeyPatch) -> None:
+    ls_output = (
+        '{"message_type":"snapshot","time":"2026-01-01T00:00:00Z","paths":["/x"]}\n'
+        '{"name":"other.txt","type":"file","path":"/x/other.txt","message_type":"node"}\n'
+        '{"name":"config.toml","type":"file","path":"/x/config.toml","message_type":"node"}\n'
+    )
+
+    def _fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        assert cmd[:2] == ["restic", "-r"]
+        assert "ls" in cmd
+        assert "--json" in cmd
+        return subprocess.CompletedProcess(cmd, 0, stdout=ls_output, stderr="")
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+    path = restic.find_path("repo", "latest", password="x", name="config.toml")
+    assert path == "/x/config.toml"
+
+
+def test_find_path_raises_on_zero_matches(monkeypatch: pytest.MonkeyPatch) -> None:
+    from turiya.errors import ResticError
+
+    ls_output = '{"message_type":"snapshot","time":"2026-01-01T00:00:00Z","paths":["/x"]}\n'
+
+    def _fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 0, stdout=ls_output, stderr="")
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+    with pytest.raises(ResticError, match="no.*config.toml"):
+        restic.find_path("repo", "latest", password="x", name="config.toml")
+
+
+def test_find_path_raises_on_multiple_matches(monkeypatch: pytest.MonkeyPatch) -> None:
+    from turiya.errors import ResticError
+
+    ls_output = (
+        '{"name":"config.toml","type":"file","path":"/a/config.toml","message_type":"node"}\n'
+        '{"name":"config.toml","type":"file","path":"/b/config.toml","message_type":"node"}\n'
+    )
+
+    def _fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 0, stdout=ls_output, stderr="")
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+    with pytest.raises(ResticError, match="multiple"):
+        restic.find_path("repo", "latest", password="x", name="config.toml")
+
+
+def test_find_path_raises_resticerror_on_nonzero_exit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from turiya.errors import ResticError
+
+    err = '{"message_type":"exit_error","code":1,"message":"no snapshot found"}\n'
+
+    def _fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 1, stdout="", stderr=err)
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+    with pytest.raises(ResticError, match="no snapshot found"):
+        restic.find_path("repo", "latest", password="x", name="config.toml")
+
+
+def test_dump_file_returns_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[bytes]:
+        assert "dump" in cmd
+        assert cmd[-2:] == ["latest", "/x/config.toml"]
+        return subprocess.CompletedProcess(cmd, 0, stdout=b"sources = []\n", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+    content = restic.dump_file("repo", "latest", "/x/config.toml", password="x")
+    assert content == b"sources = []\n"
+
+
+def test_dump_file_raises_on_plaintext_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    from turiya.errors import ResticError
+
+    def _fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.CompletedProcess(
+            cmd, 1, stdout=b"", stderr=b'Fatal: cannot dump file: path "/x" not found in snapshot\n'
+        )
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+    with pytest.raises(ResticError, match="not found in snapshot"):
+        restic.dump_file("repo", "latest", "/x/config.toml", password="x")

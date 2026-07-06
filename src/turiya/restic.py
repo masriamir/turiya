@@ -112,15 +112,61 @@ def stream(
             proc.stdout.close()
 
 
+def _error_message(result: subprocess.CompletedProcess[str]) -> str:
+    for line in (result.stderr + result.stdout).splitlines():
+        event = parse_event(line)
+        if isinstance(event, ErrorEvent):
+            return event.message
+    return f"restic exited with status {result.returncode}"
+
+
 def run_json(repo: str, args: Sequence[str], *, password: str) -> object:
     cmd = ["restic", "-r", repo, *args, "--json"]
     result = subprocess.run(cmd, capture_output=True, text=True, env=_env(password))
     if result.returncode != 0:
-        message = f"restic exited with status {result.returncode}"
-        for line in (result.stderr + result.stdout).splitlines():
-            event = parse_event(line)
-            if isinstance(event, ErrorEvent):
-                message = event.message
-                break
-        raise ResticError(message)
+        raise ResticError(_error_message(result))
     return json.loads(result.stdout)
+
+
+def find_path(repo: str, snapshot: str, *, password: str, name: str) -> str:
+    # No --recursive: restic already lists the full tree recursively when no
+    # path-filter arguments are given (verified against a real repo) — the
+    # flag only matters when scoping to specific directories.
+    cmd = ["restic", "-r", repo, "ls", snapshot, "--json"]
+    result = subprocess.run(cmd, capture_output=True, text=True, env=_env(password))
+    if result.returncode != 0:
+        raise ResticError(_error_message(result))
+    matches: list[str] = []
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if (
+            isinstance(obj, dict)
+            and obj.get("message_type") == "node"
+            and obj.get("type") == "file"
+            and obj.get("name") == name
+        ):
+            path = obj.get("path")
+            if isinstance(path, str):
+                matches.append(path)
+    if not matches:
+        raise ResticError(f"no file named '{name}' found in {repo}'s {snapshot} snapshot")
+    if len(matches) > 1:
+        raise ResticError(
+            f"multiple files named '{name}' found in {repo}'s {snapshot} snapshot: {matches}"
+        )
+    return matches[0]
+
+
+def dump_file(repo: str, snapshot: str, path: str, *, password: str) -> bytes:
+    cmd = ["restic", "-r", repo, "dump", snapshot, path]
+    result = subprocess.run(cmd, capture_output=True, env=_env(password))
+    if result.returncode != 0:
+        stderr_text = result.stderr.decode(errors="replace").strip()
+        raise ResticError(stderr_text or f"restic dump exited with status {result.returncode}")
+    return result.stdout
