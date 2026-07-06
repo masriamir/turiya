@@ -6,7 +6,7 @@ import subprocess
 from collections.abc import Sequence
 from typing import Any, cast
 
-from ..config import Config, resolve_config_path
+from ..config import Config
 from ..keychain import get_password
 from ..logging import StructuredLogger
 from ..restic import ErrorEvent, FileEvent, SummaryEvent, run_json, stream
@@ -45,7 +45,7 @@ def resolve_targets(
             if not matches:
                 return None
             targets.extend(matches)
-    config_path = str(resolve_config_path(None))
+    config_path = str(cfg.config_path)
     if config_path not in targets:
         targets.append(config_path)
     return targets
@@ -70,7 +70,7 @@ def run(
         log.run_end(success=False)
         return False
 
-    log.log_human(f"Including own config: {resolve_config_path(None)}")
+    log.log_human(f"Including own config: {cfg.config_path}")
 
     exclude_flags = [f"--exclude={p}" for p in (*cfg.excludes, *exclude)]
     retention = [

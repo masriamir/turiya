@@ -96,6 +96,50 @@ def test_include_override_still_includes_own_config(
     assert any(p == str(harness_config) for p in paths)
 
 
+def test_backup_uses_config_loaded_via_explicit_path_not_env(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    restic_repos: list[Path],
+    source_tree: Path,
+) -> None:
+    # Regression test for Copilot review feedback on PR #18: resolve_targets()
+    # must include the path this Config was actually loaded from
+    # (cfg.config_path), not re-derive it from TURIYA_CONFIG/default -- a
+    # library consumer calling config.load(path=explicit) directly (an
+    # anticipated usage per CLAUDE.md's "future consumers import operations +
+    # config directly") must have the *explicit* file backed up, even if
+    # TURIYA_CONFIG points somewhere else entirely (here, somewhere that
+    # doesn't even exist, to prove it's never touched).
+    explicit_config = tmp_path / "explicit" / "config.toml"
+    other_env_config = tmp_path / "other-env-path" / "config.toml"
+    log_dir = tmp_path / "logs"
+    repo_tables = "\n".join(f'[[repo]]\nurl = "{r}"\n' for r in restic_repos)
+    explicit_config.parent.mkdir(parents=True, exist_ok=True)
+    explicit_config.write_text(
+        f'sources = ["{source_tree}"]\nexcludes = []\n'
+        '[identity]\nlabel = "com.test.turiya"\n'
+        '[keychain]\naccount = "restic-test"\nservice = "turiya-test"\n'
+        "[[schedule]]\nweekday = 0\nhour = 10\nminute = 0\n"
+        "[power]\nwake_offset_minutes = 5\n"
+        f"{repo_tables}"
+        "[retention]\nkeep_daily = 7\nkeep_weekly = 4\nkeep_monthly = 6\nkeep_yearly = 1\n"
+        f'[logging]\ndir = "{log_dir}"\nmax_bytes = 5242880\njson_per_file = true\n'
+    )
+    monkeypatch.setenv("TURIYA_CONFIG", str(other_env_config))
+    monkeypatch.setenv("RESTIC_PASSWORD", "testpass123")
+
+    cfg = config.load(explicit_config)
+    assert cfg.config_path == explicit_config
+    assert backup.run(cfg) is True
+    snaps = cast(
+        list[dict[str, Any]],
+        restic.run_json(cfg.repos[0].url, ["snapshots"], password="testpass123"),
+    )
+    paths = snaps[-1]["paths"]
+    assert any(p == str(explicit_config) for p in paths)
+    assert not any(p == str(other_env_config) for p in paths)
+
+
 def test_own_config_not_duplicated_when_already_a_source(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

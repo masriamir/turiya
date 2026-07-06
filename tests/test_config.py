@@ -35,6 +35,21 @@ def test_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
     assert cfg.identity.label == "com.example.turiya"
 
 
+def test_config_path_reflects_explicit_load_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Regression test: cfg.config_path must be the actual path load() was
+    # given, not re-derived from TURIYA_CONFIG/default -- callers that load
+    # via an explicit path (bypassing the env var) must see that path back.
+    monkeypatch.setenv("TURIYA_CONFIG", "/should/not/be/used.toml")
+    cfg = config.load(FIXTURE)
+    assert cfg.config_path == FIXTURE
+
+
+def test_config_path_reflects_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TURIYA_CONFIG", str(FIXTURE))
+    cfg = config.load()
+    assert cfg.config_path == FIXTURE
+
+
 def test_missing_file_raises_config_error(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match="not found"):
         config.load(tmp_path / "does-not-exist.toml")

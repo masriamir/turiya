@@ -14,10 +14,12 @@ a **replacement** Mac that needs the backed-up files restored onto it.
       must remember or preserve — `turiya backup` now always includes
       it in every snapshot (closing
       [issue #12](https://github.com/masriamir/turiya/issues/12)). You
-      still need a *minimal* config to run any command at all (step 3:
-      just the repo URL and default keychain account/service,
-      `restic`/`turiya`); once you can run `turiya restore` (step 6),
-      it restores your real config.toml alongside your other files.
+      still need a **full** config.toml to run any command at all — step 3
+      starts from `config.example.toml`'s complete structure, and only the
+      `[[repo]]` URL and `[keychain]` account/service actually need to be
+      correct for bootstrap (every other field can stay as the template's
+      placeholder value). Once you can run `turiya restore` (step 6), it
+      restores your real config.toml alongside your other files.
 - [ ] **The `[[repo]]` URLs** from that config (e.g.
       `rclone:gdrive:turiya-backups`) — needed even if you're reconstructing
       the config from memory, so you point at the right remotes.
