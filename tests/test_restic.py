@@ -138,9 +138,7 @@ def test_find_path_returns_single_match(monkeypatch: pytest.MonkeyPatch) -> None
         '{"name":"config.toml","type":"file","path":"/x/config.toml","message_type":"node"}\n'
     )
 
-    def _fake_run(
-        cmd: list[str], **kwargs: object
-    ) -> subprocess.CompletedProcess[str]:
+    def _fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         assert cmd[:2] == ["restic", "-r"]
         assert "ls" in cmd
         assert "--json" in cmd
@@ -156,9 +154,7 @@ def test_find_path_raises_on_zero_matches(monkeypatch: pytest.MonkeyPatch) -> No
 
     ls_output = '{"message_type":"snapshot","time":"2026-01-01T00:00:00Z","paths":["/x"]}\n'
 
-    def _fake_run(
-        cmd: list[str], **kwargs: object
-    ) -> subprocess.CompletedProcess[str]:
+    def _fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(cmd, 0, stdout=ls_output, stderr="")
 
     monkeypatch.setattr(subprocess, "run", _fake_run)
@@ -174,9 +170,7 @@ def test_find_path_raises_on_multiple_matches(monkeypatch: pytest.MonkeyPatch) -
         '{"name":"config.toml","type":"file","path":"/b/config.toml","message_type":"node"}\n'
     )
 
-    def _fake_run(
-        cmd: list[str], **kwargs: object
-    ) -> subprocess.CompletedProcess[str]:
+    def _fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(cmd, 0, stdout=ls_output, stderr="")
 
     monkeypatch.setattr(subprocess, "run", _fake_run)
@@ -191,9 +185,7 @@ def test_find_path_raises_resticerror_on_nonzero_exit(
 
     err = '{"message_type":"exit_error","code":1,"message":"no snapshot found"}\n'
 
-    def _fake_run(
-        cmd: list[str], **kwargs: object
-    ) -> subprocess.CompletedProcess[str]:
+    def _fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(cmd, 1, stdout="", stderr=err)
 
     monkeypatch.setattr(subprocess, "run", _fake_run)
@@ -202,9 +194,7 @@ def test_find_path_raises_resticerror_on_nonzero_exit(
 
 
 def test_dump_file_returns_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
-    def _fake_run(
-        cmd: list[str], **kwargs: object
-    ) -> subprocess.CompletedProcess[bytes]:
+    def _fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[bytes]:
         assert "dump" in cmd
         assert cmd[-2:] == ["latest", "/x/config.toml"]
         return subprocess.CompletedProcess(cmd, 0, stdout=b"sources = []\n", stderr=b"")
@@ -217,9 +207,7 @@ def test_dump_file_returns_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_dump_file_raises_on_plaintext_error(monkeypatch: pytest.MonkeyPatch) -> None:
     from turiya.errors import ResticError
 
-    def _fake_run(
-        cmd: list[str], **kwargs: object
-    ) -> subprocess.CompletedProcess[bytes]:
+    def _fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[bytes]:
         return subprocess.CompletedProcess(
             cmd, 1, stdout=b"", stderr=b'Fatal: cannot dump file: path "/x" not found in snapshot\n'
         )
