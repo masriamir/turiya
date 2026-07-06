@@ -39,3 +39,25 @@ def test_recover_config_raises_when_repo_has_no_config(
     repo = restic_repos[1]  # initialized but nothing ever backed up to it
     with pytest.raises(ResticError):
         recover_config.run(repo=str(repo), password=PASSWORD, target=tmp_path / "config.toml")
+
+
+def test_recover_config_raises_when_snapshot_has_no_config(
+    restic_repos: list[Path], tmp_path: Path
+) -> None:
+    # A real snapshot exists (unlike the "no snapshot found" case above), but
+    # it contains no file named config.toml — exercises find_path's zero-match
+    # branch against the real restic binary, not just the mocked unit test.
+    repo = restic_repos[0]
+    other_file = tmp_path / "source-home" / "Documents" / "notes.txt"
+    other_file.parent.mkdir(parents=True, exist_ok=True)
+    other_file.write_text("not a config file\n")
+    env = {**os.environ, "RESTIC_PASSWORD": PASSWORD}
+    subprocess.run(
+        ["restic", "-r", str(repo), "backup", str(other_file)],
+        check=True,
+        capture_output=True,
+        env=env,
+    )
+
+    with pytest.raises(ResticError, match="no file named"):
+        recover_config.run(repo=str(repo), password=PASSWORD, target=tmp_path / "config.toml")
