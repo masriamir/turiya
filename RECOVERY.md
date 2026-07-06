@@ -9,14 +9,13 @@ a **replacement** Mac that needs the backed-up files restored onto it.
       copy outside this Mac's Keychain (e.g. a password manager). The
       Keychain itself is gone along with the machine — you need an
       out-of-band copy.
-- [ ] **A copy of `config.toml`.** This is **not currently backed up by
-      `turiya` itself** — tracked in
-      [issue #12](https://github.com/masriamir/turiya/issues/12). Until
-      that lands, keep a copy of `~/.config/turiya/config.toml` alongside
-      the password in whatever store holds it. If you don't have one,
-      you'll reconstruct it from `config.example.toml` in step 3 below —
-      you'll need to remember your `sources`, `excludes`, retention
-      settings, and schedule.
+- [ ] **A copy of `config.toml`** is no longer strictly required — since
+      `turiya backup` always includes it as an implicit target (closing
+      [issue #12](https://github.com/masriamir/turiya/issues/12)), `turiya
+      recover-config --repo <your-repo-url>` (step 3 below) restores it
+      directly from the repo's latest snapshot. Keeping a manual copy
+      alongside the password is still a reasonable belt-and-suspenders
+      backup, but no longer the only safety net.
 - [ ] **The `[[repo]]` URLs** from that config (e.g.
       `rclone:gdrive:turiya-backups`) — needed even if you're reconstructing
       the config from memory, so you point at the right remotes.
