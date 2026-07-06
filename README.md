@@ -171,6 +171,21 @@ turiya teardown                  # unload launchd job(s), remove the pmset wake 
 
 `setup` is idempotent — safe to re-run any time your config changes (e.g. a new schedule or repo). **`teardown` does not touch your restic repos on the cloud providers or remove logs.**
 
+### `turiya recover-config`
+
+```bash
+turiya recover-config --repo rclone:gdrive:turiya-backups
+turiya recover-config --repo rclone:gdrive:turiya-backups --target /tmp/inspect-first.toml
+turiya recover-config --repo rclone:gdrive:turiya-backups --force
+```
+
+Restores `config.toml` directly from a repo's latest snapshot — no existing
+`config.toml` required to run it. Prompts for the restic password (or reads
+`RESTIC_PASSWORD`), defaults `--target` to the same path `config.load()`
+resolves (`TURIYA_CONFIG` env, else `~/.config/turiya/config.toml`), and
+refuses to overwrite an existing file unless `--force` is given. See
+`RECOVERY.md` for the full disaster-recovery procedure this fits into.
+
 ---
 
 ## Changing the schedule
@@ -242,7 +257,8 @@ turiya/
 │   │   ├── restore.py
 │   │   ├── status.py
 │   │   ├── query.py
-│   │   └── setup.py                         # setup + teardown
+│   │   ├── setup.py                         # setup + teardown
+│   │   └── recover_config.py                # bootstrap: restore config.toml from a bare repo+password
 │   ├── cli.py                               # thin Typer app; console entry point `turiya`
 │   └── templates/
 │       └── launchd.plist.tmpl               # launchd plist template
