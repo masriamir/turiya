@@ -61,6 +61,41 @@ def test_glob_override_still_includes_own_config(harness_config: Path) -> None:
     assert any(p == str(harness_config) for p in paths)
 
 
+def test_pattern_override_still_includes_own_config(
+    harness_config: Path, source_tree: Path
+) -> None:
+    # Companion to test_glob_override_still_includes_own_config: --pattern
+    # takes a different branch through resolve_targets() than --glob, so it
+    # needs its own regression coverage rather than relying on --glob's.
+    cfg = config.load()
+    assert backup.run(cfg, pattern=("todo.md",)) is True
+    snaps = cast(
+        list[dict[str, Any]],
+        restic.run_json(cfg.repos[0].url, ["snapshots"], password="testpass123"),
+    )
+    paths = snaps[-1]["paths"]
+    assert any(p.endswith("todo.md") for p in paths)
+    assert any(p == str(harness_config) for p in paths)
+
+
+def test_include_override_still_includes_own_config(
+    harness_config: Path, source_tree: Path
+) -> None:
+    # Companion to test_glob_override_still_includes_own_config: --include
+    # takes a different branch through resolve_targets() than --glob/--pattern,
+    # so it needs its own regression coverage too.
+    cfg = config.load()
+    included_file = str(source_tree / "notes" / "todo.md")
+    assert backup.run(cfg, include=(included_file,)) is True
+    snaps = cast(
+        list[dict[str, Any]],
+        restic.run_json(cfg.repos[0].url, ["snapshots"], password="testpass123"),
+    )
+    paths = snaps[-1]["paths"]
+    assert any(p == included_file for p in paths)
+    assert any(p == str(harness_config) for p in paths)
+
+
 def test_own_config_not_duplicated_when_already_a_source(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
