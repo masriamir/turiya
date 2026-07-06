@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
+import pytest
+
 from turiya import config, restic
 from turiya.operations import backup
 
@@ -34,3 +36,71 @@ def test_backup_emits_valid_jsonl(harness_config: Path) -> None:
     backup.run(cfg)
     for line in (cfg.logging.dir / "backup.jsonl").read_text().splitlines():
         json.loads(line)  # must not raise
+
+
+def test_plain_backup_includes_own_config(harness_config: Path) -> None:
+    cfg = config.load()
+    assert backup.run(cfg) is True
+    snaps = cast(
+        list[dict[str, Any]],
+        restic.run_json(cfg.repos[0].url, ["snapshots"], password="testpass123"),
+    )
+    paths = snaps[-1]["paths"]
+    assert any(p == str(harness_config) for p in paths)
+
+
+def test_glob_override_still_includes_own_config(harness_config: Path) -> None:
+    cfg = config.load()
+    assert backup.run(cfg, glob=("todo.md",)) is True
+    snaps = cast(
+        list[dict[str, Any]],
+        restic.run_json(cfg.repos[0].url, ["snapshots"], password="testpass123"),
+    )
+    paths = snaps[-1]["paths"]
+    assert any(p.endswith("todo.md") for p in paths)
+    assert any(p == str(harness_config) for p in paths)
+
+
+def test_glob_no_match_still_returns_false_despite_own_config(harness_config: Path) -> None:
+    # Regression guard for the Global Constraint: a no-match override must
+    # still fail the run, not silently succeed with only config.toml backed up.
+    cfg = config.load()
+    assert backup.run(cfg, glob=("*.nonexistent-xyz",)) is False
+
+
+def test_exclude_matching_config_filename_does_not_exclude_it(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    restic_repos: list[Path],
+    source_tree: Path,
+) -> None:
+    # Regression test locking in the spec's empirically-verified restic
+    # behavior: cfg.excludes matching the config filename must not exclude
+    # the implicit config target, because restic never applies --exclude to
+    # explicit positional targets (only to files found via directory
+    # recursion). This uses its own config (not harness_config) because it
+    # needs excludes = ["*.toml"], which harness_config hardcodes differently.
+    own_config = tmp_path / "config.toml"
+    log_dir = tmp_path / "logs"
+    repo_tables = "\n".join(f'[[repo]]\nurl = "{r}"\n' for r in restic_repos)
+    own_config.write_text(
+        f'sources = ["{source_tree}"]\nexcludes = ["*.toml"]\n'
+        '[identity]\nlabel = "com.test.turiya"\n'
+        '[keychain]\naccount = "restic-test"\nservice = "turiya-test"\n'
+        "[[schedule]]\nweekday = 0\nhour = 10\nminute = 0\n"
+        "[power]\nwake_offset_minutes = 5\n"
+        f"{repo_tables}"
+        "[retention]\nkeep_daily = 7\nkeep_weekly = 4\nkeep_monthly = 6\nkeep_yearly = 1\n"
+        f'[logging]\ndir = "{log_dir}"\nmax_bytes = 5242880\njson_per_file = true\n'
+    )
+    monkeypatch.setenv("TURIYA_CONFIG", str(own_config))
+    monkeypatch.setenv("RESTIC_PASSWORD", "testpass123")
+
+    cfg = config.load()
+    assert backup.run(cfg) is True
+    snaps = cast(
+        list[dict[str, Any]],
+        restic.run_json(cfg.repos[0].url, ["snapshots"], password="testpass123"),
+    )
+    paths = snaps[-1]["paths"]
+    assert any(p == str(own_config) for p in paths)

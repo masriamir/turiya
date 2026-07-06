@@ -6,7 +6,7 @@ import subprocess
 from collections.abc import Sequence
 from typing import Any, cast
 
-from ..config import Config
+from ..config import Config, resolve_config_path
 from ..keychain import get_password
 from ..logging import StructuredLogger
 from ..restic import ErrorEvent, FileEvent, SummaryEvent, run_json, stream
@@ -26,24 +26,26 @@ def resolve_targets(
 ) -> list[str] | None:
     """Return target paths, or None if a pattern/glob/include matched nothing."""
     if not (include or pattern or glob):
-        return [str(s) for s in cfg.sources]
-    targets: list[str] = []
-    for path in include:
-        from pathlib import Path
+        targets = [str(s) for s in cfg.sources]
+    else:
+        targets = []
+        for path in include:
+            from pathlib import Path
 
-        if not Path(path).exists():
-            return None
-        targets.append(path)
-    for pat in pattern:
-        matches = [m for s in cfg.sources for m in _find(str(s), "-path", f"*{pat}*")]
-        if not matches:
-            return None
-        targets.extend(matches)
-    for g in glob:
-        matches = [m for s in cfg.sources for m in _find(str(s), "-name", g)]
-        if not matches:
-            return None
-        targets.extend(matches)
+            if not Path(path).exists():
+                return None
+            targets.append(path)
+        for pat in pattern:
+            matches = [m for s in cfg.sources for m in _find(str(s), "-path", f"*{pat}*")]
+            if not matches:
+                return None
+            targets.extend(matches)
+        for g in glob:
+            matches = [m for s in cfg.sources for m in _find(str(s), "-name", g)]
+            if not matches:
+                return None
+            targets.extend(matches)
+    targets.append(str(resolve_config_path(None)))
     return targets
 
 
@@ -65,6 +67,8 @@ def run(
         log.log_human("ERROR: include/pattern/glob matched no files.")
         log.run_end(success=False)
         return False
+
+    log.log_human(f"Including own config: {resolve_config_path(None)}")
 
     exclude_flags = [f"--exclude={p}" for p in (*cfg.excludes, *exclude)]
     retention = [
