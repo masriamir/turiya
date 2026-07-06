@@ -50,6 +50,31 @@ def test_config_path_reflects_env_override(monkeypatch: pytest.MonkeyPatch) -> N
     assert cfg.config_path == FIXTURE
 
 
+def test_config_path_unavailable_without_load() -> None:
+    # Regression test for Copilot review feedback on PR #18: a Config built
+    # directly (bypassing config.load(), e.g. via model_validate on a raw
+    # dict) has no known source file -- config_path must raise a clear
+    # ConfigError rather than an unhelpful AttributeError.
+    cfg = config.Config.model_validate(
+        {
+            "identity": {"label": "x"},
+            "keychain": {"account": "a", "service": "s"},
+            "schedules": [{"hour": 1, "minute": 0}],
+            "repos": [{"url": "rclone:x:y"}],
+            "sources": ["~/x"],
+            "retention": {
+                "keep_daily": 1,
+                "keep_weekly": 1,
+                "keep_monthly": 1,
+                "keep_yearly": 1,
+            },
+            "logging": {"dir": "~/l"},
+        }
+    )
+    with pytest.raises(ConfigError, match="config.load"):
+        _ = cfg.config_path
+
+
 def test_missing_file_raises_config_error(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match="not found"):
         config.load(tmp_path / "does-not-exist.toml")

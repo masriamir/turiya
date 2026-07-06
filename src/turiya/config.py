@@ -71,7 +71,7 @@ class Config(BaseModel):
     power: Power = Field(default_factory=Power)
     logging: LoggingConfig
 
-    _config_path: Path = PrivateAttr()
+    _config_path: Path | None = PrivateAttr(default=None)
 
     @field_validator("sources", mode="before")
     @classmethod
@@ -83,6 +83,12 @@ class Config(BaseModel):
         """The actual file this Config was loaded from — not re-derived from
         TURIYA_CONFIG/the default, so it stays correct for a Config built via
         an explicit `load(path=...)` that bypasses the env var/default."""
+        if self._config_path is None:
+            raise ConfigError(
+                "This Config was constructed without config.load() (e.g. via "
+                "Config(...) or Config.model_validate(...) directly), so its "
+                "source file path is unknown — config_path is unavailable."
+            )
         return self._config_path
 
 

@@ -7,6 +7,17 @@ unblocks the already-designed, currently-blocked
 `docs/superpowers/specs/2026-07-05-recover-config-bootstrap-design.md`
 (`turiya recover-config`).
 
+> **Amendment (PR #18 review).** The implementation appends
+> **`cfg.config_path`** — a property on the loaded `Config` holding the
+> exact path `config.load()` read it from — rather than independently
+> calling `config.resolve_config_path(None)`, which this doc originally
+> specified. A PR review caught that re-deriving the path from
+> `TURIYA_CONFIG`/the default would back up the wrong file (or fail) for a
+> `Config` loaded via an explicit `load(path=...)` — an anticipated usage
+> per `CLAUDE.md`'s "future consumers import `operations`/`config`
+> directly." References to `resolve_config_path(None)` below describe the
+> original design; the shipped code uses `cfg.config_path` instead.
+
 ## Purpose
 
 `~/.config/turiya/config.toml` (or whatever `TURIYA_CONFIG` resolves to) is
@@ -31,14 +42,12 @@ an extra backup target, unconditionally, so the file that makes every other
   this issue shipping** — it has nothing to restore until some snapshot
   actually contains `config.toml`. This design doesn't implement
   `recover-config`; it's the prerequisite that makes it viable.
-- `config.resolve_config_path(explicit: Path | None = None) -> Path`
-  (`src/turiya/config.py:80`) already exists and is exactly the logic
-  `config.load()` uses internally (`TURIYA_CONFIG` env var, else
-  `~/.config/turiya/config.toml`). Reusing it here means the implicit
-  backup target can never drift out of sync with what `turiya` actually
-  treats as "the config path" — and it's the same function
-  `recover-config`'s design already commits to for its own default target,
-  so both sides of this feature agree on "the config path" by construction.
+- `cfg.config_path` (a `Config` property, added per the amendment above,
+  backed by the exact path `config.load()` read the file from) is what
+  the implementation appends — not an independently re-derived
+  `config.resolve_config_path(None)`, since a `Config` loaded via an
+  explicit path must have *that* path backed up, not whatever
+  `TURIYA_CONFIG`/the default happens to resolve to.
 - `operations/backup.py::resolve_targets()` already assembles the effective
   per-run target list (default `cfg.sources`, or the override matches from
   `--include`/`--pattern`/`--glob`) — the natural, single place to fold this
@@ -89,7 +98,7 @@ an extra backup target, unconditionally, so the file that makes every other
 **In scope**
 
 - `resolve_targets()` in `src/turiya/operations/backup.py` always appends
-  `str(config.resolve_config_path(None))` to the computed target list.
+  `str(cfg.config_path)` to the computed target list.
 - One `log.log_human(...)` line announcing the inclusion.
 - `README.md`, `config.example.toml`, and `RECOVERY.md` updates so the docs
   don't contradict the new behavior.
@@ -128,7 +137,9 @@ def resolve_targets(
         targets = []
         # ... existing include/pattern/glob resolution, unchanged ...
         # (returns None early if any of them matched nothing)
-    targets.append(str(config.resolve_config_path(None)))
+    config_path = str(cfg.config_path)
+    if config_path not in targets:
+        targets.append(config_path)
     return targets
 ```
 
@@ -223,7 +234,11 @@ normal `file`/`summary` events like any other backed-up path.
   the function already exists, is exactly what `config.load()` uses, and is
   the same function `recover-config`'s design already commits to — keeping
   both features' notion of "the config path" identical by construction
-  rather than by convention.
+  rather than by convention. **Superseded per the amendment above:** a PR
+  review caught that this still re-derives the path independently of how
+  `cfg` was actually loaded, so the shipped code uses `cfg.config_path`
+  instead — the same "identical by construction" property, but anchored to
+  the actual `Config` instance rather than to `TURIYA_CONFIG`/the default.
 
 ## Consequences & trade-offs
 

@@ -9,13 +9,23 @@ unblocking `turiya recover-config` (already implemented in a separate PR,
 currently with nothing real-world to restore until this ships).
 
 **Architecture:** One-line addition to `operations/backup.py::resolve_targets()`
-appending `str(config.resolve_config_path(None))` to whichever target list
-was computed; a `log_human` visibility line in `run()`; doc updates so
+appending `str(cfg.config_path)` to whichever target list was computed; a
+`log_human` visibility line in `run()`; doc updates so
 `README.md`/`config.example.toml`/`RECOVERY.md` no longer contradict the new
 behavior.
 
 **Tech Stack:** Python 3.14, existing restic/pydantic stack, no new
 dependencies.
+
+> **Amendment (PR #18 review).** Everywhere below that references
+> `config.resolve_config_path(None)` describes the plan as originally
+> written. The shipped code instead uses **`cfg.config_path`** — a new
+> `Config` property (backed by a `PrivateAttr` set in `config.load()`)
+> holding the exact path the `Config` was actually loaded from — because
+> re-deriving the path from `TURIYA_CONFIG`/the default would back up the
+> wrong file for a `Config` loaded via an explicit `load(path=...)`. A
+> duplicate-target guard was also added (skip appending if the config path
+> is already in the computed target list).
 
 ## Global Constraints
 
@@ -26,8 +36,10 @@ dependencies.
   so a matching-nothing override still fails the run exactly as today
   (`"ERROR: include/pattern/glob matched no files."`), not silently
   succeeding with only the config file backed up.
-- Reuse `config.resolve_config_path(None)` verbatim — don't re-derive
-  `TURIYA_CONFIG`-or-default logic locally in `backup.py`.
+- Use `cfg.config_path` (the actual path this `Config` was loaded from) —
+  don't re-derive `TURIYA_CONFIG`-or-default logic locally in `backup.py`,
+  and don't call `config.resolve_config_path(None)` independently of `cfg`,
+  since that can diverge from an explicit `load(path=...)` call.
 - No client-side exclude-filtering guard code — the implicit target's
   immunity to `cfg.excludes`/`--exclude` comes from restic's own
   positional-argument semantics (verified empirically in the spec), not
@@ -49,10 +61,12 @@ dependencies.
 - Modify: `tests/integration/test_backup.py`
 
 **Interfaces:**
-- Consumes: `config.resolve_config_path(explicit: Path | None = None) -> Path`
-  (already exists in `src/turiya/config.py:80`).
-- Produces: no new public interface — `resolve_targets()`'s signature and
-  `run()`'s signature are unchanged; only their internal behavior changes.
+- Consumes: `cfg.config_path -> Path` (a `Config` property added in
+  `src/turiya/config.py`, backed by a `PrivateAttr` set in `config.load()`
+  to the exact path loaded).
+- Produces: no new public interface on `operations/backup.py` —
+  `resolve_targets()`'s signature and `run()`'s signature are unchanged;
+  only their internal behavior changes.
 
 - [ ] **Step 1: Write the failing tests**
 
