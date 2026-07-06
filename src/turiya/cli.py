@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 import typer
 
 from . import config
 from .errors import TuriyaError
 from .operations import backup as backup_op
 from .operations import query as query_op
+from .operations import recover_config as recover_config_op
 from .operations import restore as restore_op
 from .operations import setup as setup_op
 from .operations import status as status_op
@@ -63,6 +67,26 @@ def restore(
             pattern=pattern,
             glob=glob,
             exclude=exclude,
+        )
+    except TuriyaError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    raise typer.Exit(code=0 if ok else 1)
+
+
+@app.command("recover-config")
+def recover_config(
+    repo: str = typer.Option(..., "--repo"),
+    target: Path | None = typer.Option(None, "--target"),
+    force: bool = typer.Option(False, "--force"),
+) -> None:
+    password = os.environ.get("RESTIC_PASSWORD") or typer.prompt(
+        "Restic repository password", hide_input=True
+    )
+    resolved_target = target or config.resolve_config_path(None)
+    try:
+        ok = recover_config_op.run(
+            repo=repo, password=password, target=resolved_target, force=force
         )
     except TuriyaError as exc:
         typer.echo(str(exc), err=True)

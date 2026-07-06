@@ -83,3 +83,76 @@ def test_teardown_operation_error_exits_cleanly(
     result = runner.invoke(app, ["teardown"])
     assert result.exit_code == 1
     assert not isinstance(result.exception, SchedulingError)
+
+
+def test_recover_config_help_lists_new_command() -> None:
+    result = runner.invoke(app, ["--help"])
+    assert result.exit_code == 0
+    assert "recover-config" in result.stdout
+
+
+def test_recover_config_success(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from turiya.operations import recover_config as recover_config_op
+
+    monkeypatch.setenv("RESTIC_PASSWORD", "irrelevant")
+    target = tmp_path / "config.toml"
+
+    calls: dict[str, object] = {}
+
+    def _fake_run(*, repo: str, password: str, target: Path, force: bool = False) -> bool:
+        calls["repo"] = repo
+        calls["password"] = password
+        calls["target"] = target
+        calls["force"] = force
+        target.write_text("recovered")
+        return True
+
+    monkeypatch.setattr(recover_config_op, "run", _fake_run)
+    result = runner.invoke(
+        app, ["recover-config", "--repo", "rclone:gdrive:x", "--target", str(target)]
+    )
+    assert result.exit_code == 0
+    assert calls["repo"] == "rclone:gdrive:x"
+    assert calls["password"] == "irrelevant"
+    assert calls["target"] == target
+    assert calls["force"] is False
+
+
+def test_recover_config_defaults_target_to_resolve_config_path(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from turiya.operations import recover_config as recover_config_op
+
+    monkeypatch.setenv("RESTIC_PASSWORD", "irrelevant")
+    default_path = tmp_path / "default-config.toml"
+    monkeypatch.setenv("TURIYA_CONFIG", str(default_path))
+
+    calls: dict[str, object] = {}
+
+    def _fake_run(*, repo: str, password: str, target: Path, force: bool = False) -> bool:
+        calls["target"] = target
+        return True
+
+    monkeypatch.setattr(recover_config_op, "run", _fake_run)
+    result = runner.invoke(app, ["recover-config", "--repo", "rclone:gdrive:x"])
+    assert result.exit_code == 0
+    assert calls["target"] == default_path
+
+
+def test_recover_config_operation_error_exits_cleanly(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from turiya.errors import ConfigError
+    from turiya.operations import recover_config as recover_config_op
+
+    monkeypatch.setenv("RESTIC_PASSWORD", "irrelevant")
+
+    def _boom(*args: object, **kwargs: object) -> bool:
+        raise ConfigError("already exists")
+
+    monkeypatch.setattr(recover_config_op, "run", _boom)
+    result = runner.invoke(
+        app, ["recover-config", "--repo", "rclone:gdrive:x", "--target", str(tmp_path / "c.toml")]
+    )
+    assert result.exit_code == 1
+    assert not isinstance(result.exception, ConfigError)
