@@ -33,6 +33,7 @@ dashboard, notifications, integrity automation) import `operations` +
 | `src/turiya/cli.py` | Thin Typer app; maps `backup`/`restore`/`status`/`query`/`setup`/`teardown` subcommands to `operations.*.run`; console entry point `turiya`. |
 | `Makefile` | `install` (`uv tool install . --reinstall`, pins `turiya` on `PATH` — required before `turiya setup`, see `operations/setup.py`), `dev` (`uv sync`), `gates` (mirrors CI), `release` (tags + pushes + publishes a GitHub release for the current `pyproject.toml` version, with notes sliced from the matching `CHANGELOG.md` section). The installed `turiya` and `uv run turiya` are the same entry point via two separate environments (a pinned `uv tool` env vs. the project `.venv`). |
 | `README.md` | User-facing usage docs. |
+| `RECOVERY.md` | Disaster-recovery runbook: restoring turiya's backups onto a replacement Mac after the original is lost/dead/wiped. |
 | `.github/copilot-instructions.md` | Copilot-facing project instructions — this file's counterpart. |
 
 The original bash v1.0.0 implementation (shell backup/restore/status/query
