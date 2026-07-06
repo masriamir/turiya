@@ -6,7 +6,7 @@ import os
 import tomllib
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationError, field_validator
 
 from .errors import ConfigError
 
@@ -71,10 +71,25 @@ class Config(BaseModel):
     power: Power = Field(default_factory=Power)
     logging: LoggingConfig
 
+    _config_path: Path | None = PrivateAttr(default=None)
+
     @field_validator("sources", mode="before")
     @classmethod
     def _expand_sources(cls, v: list[str]) -> list[Path]:
         return [_expand(s) for s in v]
+
+    @property
+    def config_path(self) -> Path:
+        """The actual file this Config was loaded from — not re-derived from
+        TURIYA_CONFIG/the default, so it stays correct for a Config built via
+        an explicit `load(path=...)` that bypasses the env var/default."""
+        if self._config_path is None:
+            raise ConfigError(
+                "This Config was constructed without config.load() (e.g. via "
+                "Config(...) or Config.model_validate(...) directly), so its "
+                "source file path is unknown — config_path is unavailable."
+            )
+        return self._config_path
 
 
 def resolve_config_path(explicit: Path | None = None) -> Path:
@@ -96,6 +111,8 @@ def load(path: Path | None = None) -> Config:
     except tomllib.TOMLDecodeError as exc:
         raise ConfigError(f"Config at {resolved} is not valid TOML: {exc}") from exc
     try:
-        return Config.model_validate(raw)
+        cfg = Config.model_validate(raw)
     except ValidationError as exc:
         raise ConfigError(f"Invalid config at {resolved}:\n{exc}") from exc
+    cfg._config_path = resolved
+    return cfg

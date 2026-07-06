@@ -9,14 +9,17 @@ a **replacement** Mac that needs the backed-up files restored onto it.
       copy outside this Mac's Keychain (e.g. a password manager). The
       Keychain itself is gone along with the machine — you need an
       out-of-band copy.
-- [ ] **A copy of `config.toml`.** This is **not currently backed up by
-      `turiya` itself** — tracked in
-      [issue #12](https://github.com/masriamir/turiya/issues/12). Until
-      that lands, keep a copy of `~/.config/turiya/config.toml` alongside
-      the password in whatever store holds it. If you don't have one,
-      you'll reconstruct it from `config.example.toml` in step 3 below —
-      you'll need to remember your `sources`, `excludes`, retention
-      settings, and schedule.
+- [ ] **A copy of `config.toml`** still helps, but its exact content
+      (sources/excludes/retention/schedule) is no longer something you
+      must remember or preserve — `turiya backup` now always includes
+      it in every snapshot (closing
+      [issue #12](https://github.com/masriamir/turiya/issues/12)). You
+      still need a **full** config.toml to run any command at all — step 3
+      starts from `config.example.toml`'s complete structure, and only the
+      `[[repo]]` URL and `[keychain]` account/service actually need to be
+      correct for bootstrap (every other field can stay as the template's
+      placeholder value). Once you can run `turiya restore` (step 6), it
+      restores your real config.toml alongside your other files.
 - [ ] **The `[[repo]]` URLs** from that config (e.g.
       `rclone:gdrive:turiya-backups`) — needed even if you're reconstructing
       the config from memory, so you point at the right remotes.
@@ -41,9 +44,16 @@ a **replacement** Mac that needs the backed-up files restored onto it.
    with `turiya: command not found` even though install succeeded. See
    `README.md`'s Bootstrap section.
 
-3. **Recreate `~/.config/turiya/config.toml`** — copy back your saved copy
-   (recommended), or copy `config.example.toml` and fill in your
-   sources/excludes/retention/schedule/repo URLs from memory.
+3. **Recreate `~/.config/turiya/config.toml`.** If you have a saved copy,
+   restore it directly and skip to step 4. Otherwise, copy
+   `config.example.toml` and edit just enough to run `turiya restore` in
+   step 6 — the `[[repo]]` URL(s) pointing at your actual remote(s), and
+   `[keychain]` `account`/`service` matching what's in your recovered
+   password (the defaults, `restic`/`turiya`, unless you changed them).
+   Every other placeholder value in `config.example.toml` (`sources`,
+   `excludes`, retention, schedule) can stay as-is for now — `turiya
+   restore` doesn't use them, and step 6 restores your *real* config.toml
+   from the snapshot, replacing this placeholder entirely.
 
 4. **Re-authenticate rclone remotes:**
    ```bash
