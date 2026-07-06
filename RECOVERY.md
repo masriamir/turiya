@@ -42,9 +42,16 @@ a **replacement** Mac that needs the backed-up files restored onto it.
    with `turiya: command not found` even though install succeeded. See
    `README.md`'s Bootstrap section.
 
-3. **Recreate `~/.config/turiya/config.toml`** — copy back your saved copy
-   (recommended), or copy `config.example.toml` and fill in your
-   sources/excludes/retention/schedule/repo URLs from memory.
+3. **Recreate `~/.config/turiya/config.toml`.** If you have a saved copy,
+   restore it directly and skip to step 4. Otherwise, copy
+   `config.example.toml` and edit just enough to run `turiya restore` in
+   step 6 — the `[[repo]]` URL(s) pointing at your actual remote(s), and
+   `[keychain]` `account`/`service` matching what's in your recovered
+   password (the defaults, `restic`/`turiya`, unless you changed them).
+   Every other placeholder value in `config.example.toml` (`sources`,
+   `excludes`, retention, schedule) can stay as-is for now — `turiya
+   restore` doesn't use them, and step 6 restores your *real* config.toml
+   from the snapshot, replacing this placeholder entirely.
 
 4. **Re-authenticate rclone remotes:**
    ```bash

@@ -45,7 +45,9 @@ def resolve_targets(
             if not matches:
                 return None
             targets.extend(matches)
-    targets.append(str(resolve_config_path(None)))
+    config_path = str(resolve_config_path(None))
+    if config_path not in targets:
+        targets.append(config_path)
     return targets
 
 

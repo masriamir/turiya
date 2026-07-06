@@ -1,7 +1,7 @@
 # Auto-Include `config.toml` as an Implicit Backup Source — Design & ADR
 
 Date: 2026-07-05
-Status: Proposed
+Status: Accepted
 Sub-project: closes [issue #12](https://github.com/masriamir/turiya/issues/12);
 unblocks the already-designed, currently-blocked
 `docs/superpowers/specs/2026-07-05-recover-config-bootstrap-design.md`

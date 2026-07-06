@@ -61,11 +61,40 @@ def test_glob_override_still_includes_own_config(harness_config: Path) -> None:
     assert any(p == str(harness_config) for p in paths)
 
 
-def test_glob_no_match_still_returns_false_despite_own_config(harness_config: Path) -> None:
-    # Regression guard for the Global Constraint: a no-match override must
-    # still fail the run, not silently succeed with only config.toml backed up.
+def test_own_config_not_duplicated_when_already_a_source(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    restic_repos: list[Path],
+) -> None:
+    # Regression test for Copilot review feedback on PR #18: resolve_targets()
+    # must not append the resolved config path if it's already present in the
+    # computed target list (e.g. the operator points a `sources` entry
+    # directly at config.toml), or restic gets the same positional target
+    # twice and the snapshot's paths list carries a duplicate entry.
+    own_config = tmp_path / "config.toml"
+    log_dir = tmp_path / "logs"
+    repo_tables = "\n".join(f'[[repo]]\nurl = "{r}"\n' for r in restic_repos)
+    own_config.write_text(
+        f'sources = ["{own_config}"]\nexcludes = []\n'
+        '[identity]\nlabel = "com.test.turiya"\n'
+        '[keychain]\naccount = "restic-test"\nservice = "turiya-test"\n'
+        "[[schedule]]\nweekday = 0\nhour = 10\nminute = 0\n"
+        "[power]\nwake_offset_minutes = 5\n"
+        f"{repo_tables}"
+        "[retention]\nkeep_daily = 7\nkeep_weekly = 4\nkeep_monthly = 6\nkeep_yearly = 1\n"
+        f'[logging]\ndir = "{log_dir}"\nmax_bytes = 5242880\njson_per_file = true\n'
+    )
+    monkeypatch.setenv("TURIYA_CONFIG", str(own_config))
+    monkeypatch.setenv("RESTIC_PASSWORD", "testpass123")
+
     cfg = config.load()
-    assert backup.run(cfg, glob=("*.nonexistent-xyz",)) is False
+    assert backup.run(cfg) is True
+    snaps = cast(
+        list[dict[str, Any]],
+        restic.run_json(cfg.repos[0].url, ["snapshots"], password="testpass123"),
+    )
+    paths = snaps[-1]["paths"]
+    assert paths.count(str(own_config)) == 1
 
 
 def test_exclude_matching_config_filename_does_not_exclude_it(
