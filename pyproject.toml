@@ -21,7 +21,7 @@ build-backend = "hatchling.build"
 packages = ["src/turiya"]
 
 [dependency-groups]
-dev = ["pytest>=8", "mypy>=1.10", "ty>=0.0.1", "ruff>=0.5"]
+dev = ["pytest>=8", "mypy>=2.3.0", "ty>=0.0.59", "ruff>=0.15.21"]
 
 [tool.ruff]
 line-length = 100
