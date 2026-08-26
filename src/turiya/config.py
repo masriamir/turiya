@@ -73,8 +73,10 @@ class Config(BaseModel):
 
     @field_validator("sources", mode="before")
     @classmethod
-    def _expand_sources(cls, v: list[str]) -> list[Path]:
-        return [_expand(s) for s in v]
+    def _expand_sources(cls, v: object) -> object:
+        if not isinstance(v, list):
+            return v
+        return [_expand(s) if isinstance(s, str | Path) else s for s in v]
 
 
 def resolve_config_path(explicit: Path | None = None) -> Path:
@@ -93,7 +95,7 @@ def load(path: Path | None = None) -> Config:
     try:
         with resolved.open("rb") as fh:
             raw = tomllib.load(fh)
-    except tomllib.TOMLDecodeError as exc:
+    except (tomllib.TOMLDecodeError, UnicodeDecodeError) as exc:
         raise ConfigError(f"Config at {resolved} is not valid TOML: {exc}") from exc
     try:
         return Config.model_validate(raw)

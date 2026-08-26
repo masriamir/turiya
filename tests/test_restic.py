@@ -1,9 +1,28 @@
+import json
 import subprocess
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from turiya import restic
 from turiya.restic import ErrorEvent, FileEvent, SummaryEvent
+
+JSON_SCALAR = st.one_of(
+    st.none(),
+    st.booleans(),
+    st.integers(),
+    st.floats(allow_nan=False, allow_infinity=False),
+    st.text(max_size=80),
+)
+JSON_VALUE = st.recursive(
+    JSON_SCALAR,
+    lambda children: st.one_of(
+        st.lists(children, max_size=4),
+        st.dictionaries(st.text(max_size=30), children, max_size=4),
+    ),
+    max_leaves=12,
+)
 
 
 def test_parse_file_event() -> None:
@@ -129,3 +148,43 @@ def test_stream_raises_resticerror_when_no_stdout(monkeypatch: pytest.MonkeyPatc
     # The guard fires before the loop ever starts, but it must still be inside
     # the try/finally so the still-running child gets terminated/cleaned up.
     assert fake.terminated is True
+
+
+@given(st.one_of(st.text(max_size=2048), JSON_VALUE.map(json.dumps)))
+def test_parse_event_never_raises_for_arbitrary_text_or_json(line: str) -> None:
+    event = restic.parse_event(line)
+
+    assert event is None or isinstance(event, FileEvent | SummaryEvent | ErrorEvent)
+
+
+@given(st.dictionaries(st.text(max_size=30), JSON_VALUE, max_size=8))
+def test_parse_summary_preserves_any_json_object(payload: dict[str, object]) -> None:
+    payload["message_type"] = "summary"
+
+    event = restic.parse_event(json.dumps(payload))
+
+    assert isinstance(event, SummaryEvent)
+    assert event.data == payload
+
+
+@given(st.sampled_from([float("nan"), float("inf"), float("-inf"), True, False]))
+def test_parse_verbose_status_uses_zero_for_non_finite_or_boolean_size(size: float | bool) -> None:
+    line = json.dumps(
+        {"message_type": "verbose_status", "action": "new", "item": "🙂/report", "data_size": size}
+    )
+
+    event = restic.parse_event(line)
+
+    assert isinstance(event, FileEvent)
+    assert event.size == 0
+
+
+@given(
+    st.text().filter(
+        lambda value: value not in {"verbose_status", "summary", "error", "exit_error"}
+    )
+)
+def test_parse_unknown_message_types_are_ignored(message_type: str) -> None:
+    event = restic.parse_event(json.dumps({"message_type": message_type, "item": "東京"}))
+
+    assert event is None
