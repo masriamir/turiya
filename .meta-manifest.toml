@@ -1,0 +1,44 @@
+# Shared-file sync manifest — see scripts/meta_sync.py (vendored, itself tracked
+# below). Canonical sources live in masriamir/.github; bump a ref deliberately,
+# then run: make meta-sync
+[[file]]
+source = "masriamir/.github"
+ref = "4719d5bfca1fdd2273c13e5c30f87e0340240012"
+path = "templates/editorconfig"
+dest = ".editorconfig"
+mode = "file"
+
+[[file]]
+source = "masriamir/.github"
+ref = "4719d5bfca1fdd2273c13e5c30f87e0340240012"
+path = "templates/CODEOWNERS"
+dest = ".github/CODEOWNERS"
+mode = "file"
+
+[[file]]
+source = "masriamir/.github"
+ref = "4719d5bfca1fdd2273c13e5c30f87e0340240012"
+path = "templates/python/lefthook.yml"
+dest = "lefthook.yml"
+mode = "file"
+
+[[file]]
+source = "masriamir/.github"
+ref = "4719d5bfca1fdd2273c13e5c30f87e0340240012"
+path = "scripts/meta_sync.py"
+dest = "scripts/meta_sync.py"
+mode = "file"
+
+[[file]]
+source = "masriamir/.github"
+ref = "4719d5bfca1fdd2273c13e5c30f87e0340240012"
+path = "scripts/check-conventional-subject.py"
+dest = "scripts/check-conventional-subject.py"
+mode = "file"
+
+[[file]]
+source = "masriamir/.github"
+ref = "4719d5bfca1fdd2273c13e5c30f87e0340240012"
+path = "scripts/test-conventional-subject.sh"
+dest = "scripts/test-conventional-subject.sh"
+mode = "file"
