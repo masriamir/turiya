@@ -118,7 +118,7 @@ turiya backup --glob '*.pdf'                   # back up only files matching thi
 turiya backup --exclude '*.iso'                # add an extra exclude pattern, this run only
 ```
 
-`--include`/`--pattern`/`--glob` are repeatable and combinable; when any are given, they **replace** the configured `sources` for that run (the scheduled weekly backup, run with no flags, always uses the full `sources` list). `--exclude` is repeatable and adds to the configured `excludes` for that run only.
+`turiya backup` automatically includes the active `config.toml` alongside the configured `sources`, so ordinary scheduled backups preserve the backup configuration too. `--include`/`--pattern`/`--glob` are repeatable and combinable; when any are given, they **replace** all default targets for that run, including the implicit config file. `--exclude` is repeatable and adds to the configured `excludes` for that run only.
 
 ### `turiya restore`
 
