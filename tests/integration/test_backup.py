@@ -31,12 +31,49 @@ def test_glob_restricts_targets(harness_config: Path) -> None:
     assert str(harness_config) not in paths
 
 
+def test_include_restricts_targets(harness_config: Path) -> None:
+    cfg = config.load()
+    target = cfg.sources[0] / "notes" / "todo.md"
+    assert backup.run(cfg, include=(str(target),)) is True
+    snaps = cast(
+        list[dict[str, Any]],
+        restic.run_json(cfg.repos[0].url, ["snapshots"], password="testpass123"),
+    )
+    paths = snaps[-1]["paths"]
+    assert str(target) in paths
+    assert str(harness_config) not in paths
+
+
+def test_pattern_restricts_targets(harness_config: Path) -> None:
+    cfg = config.load()
+    assert backup.run(cfg, pattern=("todo.md",)) is True
+    snaps = cast(
+        list[dict[str, Any]],
+        restic.run_json(cfg.repos[0].url, ["snapshots"], password="testpass123"),
+    )
+    paths = snaps[-1]["paths"]
+    assert any(path.endswith("todo.md") for path in paths)
+    assert str(harness_config) not in paths
+
+
 def test_config_already_covered_by_source_is_not_added(
     harness_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     cfg = config.load()
     monkeypatch.setattr(cfg, "_config_path", cfg.sources[0] / "config.toml")
     assert backup.resolve_targets(cfg, include=(), pattern=(), glob=()) == [str(cfg.sources[0])]
+
+
+def test_config_covered_by_relative_symlink_source_is_not_added(
+    harness_config: Path, source_tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    linked_source = source_tree.parent / "linked-source"
+    linked_source.symlink_to(source_tree, target_is_directory=True)
+    cfg = config.load()
+    monkeypatch.chdir(source_tree.parent)
+    monkeypatch.setattr(cfg, "sources", [Path(linked_source.name)])
+    monkeypatch.setattr(cfg, "_config_path", source_tree / "config.toml")
+    assert backup.resolve_targets(cfg, include=(), pattern=(), glob=()) == [linked_source.name]
 
 
 def test_glob_no_match_returns_false(harness_config: Path) -> None:

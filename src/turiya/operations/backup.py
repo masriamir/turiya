@@ -29,7 +29,7 @@ def resolve_targets(
     if not (include or pattern or glob):
         default_targets = [str(s) for s in cfg.sources]
         config_path = cfg.config_path
-        if not any(config_path.is_relative_to(source) for source in cfg.sources):
+        if not any(config_path.is_relative_to(source.resolve()) for source in cfg.sources):
             default_targets.append(str(config_path))
         return default_targets
     targets: list[str] = []
