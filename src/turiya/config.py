@@ -80,7 +80,7 @@ class Config(BaseModel):
 
     @property
     def config_path(self) -> Path:
-        """Return the file this configuration was loaded from."""
+        """Return the loaded config path, or the currently resolved fallback path."""
         return (self._config_path or resolve_config_path()).resolve()
 
 
