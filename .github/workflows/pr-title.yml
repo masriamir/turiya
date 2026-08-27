@@ -17,4 +17,4 @@ permissions:
 
 jobs:
   pr-title:
-    uses: masriamir/.github/.github/workflows/pr-title.yml@4719d5bfca1fdd2273c13e5c30f87e0340240012 # main branch pin
+    uses: masriamir/.github/.github/workflows/pr-title.yml@4719d5bfca1fdd2273c13e5c30f87e0340240012 # main
