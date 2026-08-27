@@ -76,3 +76,20 @@ path = "templates/blocks/copilot-review-loop.md"
 dest = "AGENTS.md"
 mode = "block"
 marker = "copilot-review-loop"
+
+# .gitignore shared blocks.
+[[file]]
+source = "masriamir/.github"
+ref = "4719d5bfca1fdd2273c13e5c30f87e0340240012"
+path = "templates/gitignore/base.gitignore"
+dest = ".gitignore"
+mode = "block"
+marker = "gitignore-base"
+
+[[file]]
+source = "masriamir/.github"
+ref = "4719d5bfca1fdd2273c13e5c30f87e0340240012"
+path = "templates/gitignore/python.gitignore"
+dest = ".gitignore"
+mode = "block"
+marker = "gitignore-python"

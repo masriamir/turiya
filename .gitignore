@@ -1,4 +1,67 @@
-# Generated plist (rendered from template by install.sh, not tracked)
+# >>> meta:gitignore-base
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Environment / local overrides
+.env
+.env.local
+
+# Python bytecode caches
+__pycache__/
+*.py[cod]
+
+# Temporary files
+/.tmp/
+
+# Claude Code agent worktrees (ephemeral, created by Claude Code)
+.claude/worktrees/
+
+# Ad-hoc local git worktrees
+.worktrees/
+
+# AI agent artifacts (superpowers plans/specs — never committed)
+docs/superpowers/
+
+# Playwright MCP browser-session artifacts
+.playwright-mcp/
+# <<< meta:gitignore-base
+
+# >>> meta:gitignore-python
+# Virtual environment (uv creates .venv/)
+.venv/
+
+# Build / distribution artifacts (hatchling)
+build/
+dist/
+*.egg-info/
+
+# uv.lock and .python-version are intentionally COMMITTED: the pinned interpreter
+# and resolved dependency set are what make installs reproducible.
+# (Do not ignore them.)
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
+
+# Coverage output
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+# <<< meta:gitignore-python
+
+# --- turiya-specific ---
+
+# Generated plist (rendered from template by `turiya setup`, not tracked)
 *.plist
 
 # Logs
@@ -8,31 +71,20 @@
 # rclone config (contains OAuth tokens — never commit this)
 rclone.conf
 
-# macOS
-.DS_Store
+# macOS artifacts not covered by gitignore-base (which only ignores .DS_Store)
 .Spotlight-V100
 .Trashes
 
 # Local test harness (scratch restic repos + fixtures, never committed)
 .test-harness/
 
-# Editor
-.vscode/
-.idea/
-*.swp
+# Vim swap file variant not covered by gitignore-base (which only ignores *.swp)
 *.swo
+
+# Superpowers runtime directory (distinct from docs/superpowers/)
 .superpowers/
 
 # Claude Code — local & runtime files (shared settings.json / agents / commands stay tracked)
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 .claude/*.lock
-
-# Python
-.venv/
-__pycache__/
-*.pyc
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-dist/
