@@ -234,7 +234,7 @@ turiya/
 ├── config.example.toml                      # ← copy to ~/.config/turiya/config.toml
 ├── pyproject.toml                           # package metadata + tool config (ruff/mypy/ty/pytest)
 ├── uv.lock
-├── Makefile                                 # install (uv tool install), dev (uv sync), gates (CI parity), release (tag + publish)
+├── Makefile                                 # install (uv tool install), dev (uv sync), gates (CI parity), release (tag + publish), meta-check/meta-sync (shared-file manifest)
 ├── src/turiya/
 │   ├── __init__.py
 │   ├── __main__.py                          # `python -m turiya` entry point
@@ -255,10 +255,13 @@ turiya/
 │   └── templates/
 │       └── launchd.plist.tmpl               # launchd plist template
 ├── tests/                                   # pytest: unit + integration suites
-├── .claude/
-│   └── CLAUDE.md                            # project conventions for AI-assisted development
+├── AGENTS.md                                # shared conventions for any AI agent (Copilot reads this)
+├── CLAUDE.md                                # Claude-only notes; imports AGENTS.md
+├── .meta-manifest.toml                      # pins shared files to masriamir/.github (see `make meta-check`)
+├── lefthook.yml                             # pre-commit/pre-push/commit-msg hooks (run `lefthook install`)
+├── scripts/                                 # vendored from masriamir/.github, manifest-tracked
 ├── .github/                                 # CI, CodeQL, Dependabot, issue/PR templates
-│   └── copilot-instructions.md              # same conventions, for GitHub Copilot
+│   └── copilot-instructions.md              # reviewer-focused notes; points at AGENTS.md
 ├── .gitignore
 └── README.md
 ```
