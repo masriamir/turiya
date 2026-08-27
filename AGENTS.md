@@ -36,7 +36,7 @@ dashboard, notifications, integrity automation) import `operations` +
 | `src/turiya/operations/setup.py` | `run(config, *, password=None, program=None)` / `teardown(config)`. Keychain prompt, rclone remote check, restic repo init, launchd plist install/removal, pmset. `default_program()` resolves the launchd `ProgramArguments` to the `uv tool`-installed `turiya` binary (via `uv tool dir --bin`), raising `SchedulingError` if it isn't installed yet — see `Makefile`. |
 | `src/turiya/templates/launchd.plist.tmpl` | launchd plist template, rendered via stdlib `string.Template` — de-hardcoded (item 2), no jinja2 dependency. |
 | `src/turiya/cli.py` | Thin Typer app; maps `backup`/`restore`/`status`/`query`/`setup`/`teardown` subcommands to `operations.*.run`; console entry point `turiya`. |
-| `Makefile` | `install` (`uv tool install . --reinstall`, pins `turiya` on `PATH` — required before `turiya setup`, see `operations/setup.py`), `dev` (`uv sync`), `gates` (mirrors CI), `release` (tags + pushes + publishes a GitHub release for the current `pyproject.toml` version, with notes sliced from the matching `CHANGELOG.md` section). The installed `turiya` and `uv run turiya` are the same entry point via two separate environments (a pinned `uv tool` env vs. the project `.venv`). |
+| `Makefile` | `install` (`uv tool install . --reinstall`, pins `turiya` on `PATH` — required before `turiya setup`, see `operations/setup.py`), `dev` (`uv sync`), `gates` (mirrors CI), `release` (tags + pushes + publishes a GitHub release for the current `pyproject.toml` version, with notes sliced from the matching `CHANGELOG.md` section), `meta-check` (verifies shared files match their pinned `masriamir/.github` sources), `meta-sync` (rewrites them after a deliberate `ref` bump). The installed `turiya` and `uv run turiya` are the same entry point via two separate environments (a pinned `uv tool` env vs. the project `.venv`). |
 | `README.md` | User-facing usage docs. |
 | `RECOVERY.md` | Disaster-recovery runbook: restoring turiya's backups onto a replacement Mac after the original is lost/dead/wiped. |
 | `.github/copilot-instructions.md` | Copilot-facing project instructions — this file's counterpart. |
@@ -44,6 +44,8 @@ dashboard, notifications, integrity automation) import `operations` +
 | `CLAUDE.md` | Claude-specific entry point at the repo root; imports this file with `@AGENTS.md`. |
 | `.meta-manifest.toml` | Manifest of shared files/blocks synced from `masriamir/.github`, consumed by `scripts/meta_sync.py`. Bump a `ref` deliberately, then run `make meta-sync`. |
 | `lefthook.yml` | Git hooks configuration, synced from `masriamir/.github`'s Python template. |
+| `.editorconfig` | Editor whitespace/charset/indent defaults, synced from `masriamir/.github` via `.meta-manifest.toml`. |
+| `.github/CODEOWNERS` | Review ownership, synced from `masriamir/.github` via `.meta-manifest.toml`. |
 | `scripts/` | Vendored sync tooling: `meta_sync.py` (checks/applies the shared-file manifest) and `check-conventional-subject.py` / `test-conventional-subject.sh` (commit-subject linting), all synced from `masriamir/.github`. |
 
 The original bash v1.0.0 implementation (shell backup/restore/status/query
@@ -58,10 +60,11 @@ from `main` and remains recoverable at the `v1.0.0` git tag.
   ```bash
   uv run pytest
   uv run ruff check .
+  uv run ruff format --check .
   uv run mypy src tests
   uv run ty check
   ```
-  All four must be clean. `ruff` also handles formatting (`uv run ruff format .`).
+  All five must be clean. `uv run ruff format .` fixes formatting issues caught by the check.
 - **Layering rule:** `operations/*` contain the logic and depend on the lower-level modules (`config`, `keychain`, `restic`, `rclone`, `logging`, `scheduling`). `cli.py` is thin and depends only on `operations` + `config` — it must never contain business logic, only argument wiring and error-to-exit-code translation. Anything importable by a future dashboard belongs in `operations` or below, not in `cli.py`.
 - **Config:** all runtime configuration lives in TOML at `~/.config/turiya/config.toml` (template: `config.example.toml`), loaded with stdlib `tomllib` and validated into a pydantic v2 `Config` model (`src/turiya/config.py`). Root-level keys (`sources`, `excludes`) must precede all `[table]`/`[[array]]` headers in the TOML file, or TOML will silently absorb them into the preceding table. Two env var overrides exist for testing, not normal use: `TURIYA_CONFIG` (override which file `config.load` reads) and `RESTIC_PASSWORD` (skip the Keychain lookup if already set).
 - **Errors:** every operation-level failure is a subclass of `TuriyaError` (`src/turiya/errors.py`). `cli.py` catches `TuriyaError`, prints a clean message to stderr, and exits non-zero — never let a raw traceback reach the user for an expected failure mode. restic/rclone failures always surface their real underlying message (never swallowed).
@@ -76,7 +79,7 @@ from `main` and remains recoverable at the `v1.0.0` git tag.
 2. Wire it into `src/turiya/cli.py` as a new `@app.command()`, thin argument mapping only.
 3. Add the file to the file map above and to `README.md`'s CLI reference.
 4. Write unit tests (subprocess mocked) and, if it touches restic, an integration test against a real temp repo fixture.
-5. Run the full gate (`pytest`, `ruff check`, `mypy`, `ty check`) before considering the change done.
+5. Run the full gate (`pytest`, `ruff check`, `ruff format --check`, `mypy`, `ty check`) before considering the change done.
 
 ## Logging schema
 

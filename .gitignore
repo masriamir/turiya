@@ -84,7 +84,7 @@ rclone.conf
 # Superpowers runtime directory (distinct from docs/superpowers/)
 .superpowers/
 
-# Claude Code — local & runtime files (shared settings.json / agents / commands stay tracked)
+# Claude Code — local & runtime files (nothing under .claude/ is tracked)
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 .claude/*.lock
