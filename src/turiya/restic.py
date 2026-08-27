@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import subprocess
 from collections.abc import Generator, Sequence
 from dataclasses import dataclass, field
@@ -46,7 +47,14 @@ def parse_event(line: str) -> ResticEvent | None:
         if action == "scan_finished":
             return None
         size_raw = obj.get("data_size", obj.get("size", 0))
-        size = int(size_raw) if isinstance(size_raw, int | float) else 0
+        if isinstance(size_raw, bool):
+            size = 0
+        elif isinstance(size_raw, int):
+            size = size_raw
+        elif isinstance(size_raw, float) and math.isfinite(size_raw):
+            size = int(size_raw)
+        else:
+            size = 0
         return FileEvent(action=action, path=str(obj.get("item", "")), size=size)
     if mtype == "summary":
         return SummaryEvent(data=obj)
