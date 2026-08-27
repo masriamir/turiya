@@ -5,6 +5,9 @@
 #
 # Root-level keys (sources/excludes) must precede all [table]/[[array]]
 # headers, otherwise TOML absorbs them into the preceding table.
+#
+# This file itself doesn't need to be listed in `sources` — turiya always
+# backs up its own config as an implicit extra target, on every run.
 sources = ["~/Documents", "~/Desktop", "~/Projects"]
 excludes = [".DS_Store", "node_modules", "*.tmp"]
 
