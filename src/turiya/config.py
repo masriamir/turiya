@@ -6,7 +6,7 @@ import os
 import tomllib
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationError, field_validator
 
 from .errors import ConfigError
 
@@ -61,6 +61,8 @@ class LoggingConfig(BaseModel):
 class Config(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
+    _config_path: Path | None = PrivateAttr(default=None)
+
     identity: Identity
     keychain: Keychain
     schedules: list[Schedule] = Field(alias="schedule", min_length=1)
@@ -76,6 +78,11 @@ class Config(BaseModel):
     def _expand_sources(cls, v: list[str]) -> list[Path]:
         return [_expand(s) for s in v]
 
+    @property
+    def config_path(self) -> Path:
+        """Return the loaded config path, or the currently resolved fallback path."""
+        return (self._config_path or resolve_config_path()).resolve()
+
 
 def resolve_config_path(explicit: Path | None = None) -> Path:
     if explicit is not None:
@@ -87,7 +94,7 @@ def resolve_config_path(explicit: Path | None = None) -> Path:
 
 
 def load(path: Path | None = None) -> Config:
-    resolved = resolve_config_path(path)
+    resolved = resolve_config_path(path).resolve()
     if not resolved.is_file():
         raise ConfigError(f"Config file not found at {resolved}")
     try:
@@ -96,6 +103,8 @@ def load(path: Path | None = None) -> Config:
     except tomllib.TOMLDecodeError as exc:
         raise ConfigError(f"Config at {resolved} is not valid TOML: {exc}") from exc
     try:
-        return Config.model_validate(raw)
+        cfg = Config.model_validate(raw)
     except ValidationError as exc:
         raise ConfigError(f"Invalid config at {resolved}:\n{exc}") from exc
+    cfg._config_path = resolved
+    return cfg

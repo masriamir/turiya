@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import subprocess
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any, cast
 
 from ..config import Config
@@ -26,11 +27,13 @@ def resolve_targets(
 ) -> list[str] | None:
     """Return target paths, or None if a pattern/glob/include matched nothing."""
     if not (include or pattern or glob):
-        return [str(s) for s in cfg.sources]
+        default_targets = [str(s) for s in cfg.sources]
+        config_path = cfg.config_path
+        if not any(config_path.is_relative_to(source.resolve()) for source in cfg.sources):
+            default_targets.append(str(config_path))
+        return default_targets
     targets: list[str] = []
     for path in include:
-        from pathlib import Path
-
         if not Path(path).exists():
             return None
         targets.append(path)

@@ -9,14 +9,13 @@ a **replacement** Mac that needs the backed-up files restored onto it.
       copy outside this Mac's Keychain (e.g. a password manager). The
       Keychain itself is gone along with the machine — you need an
       out-of-band copy.
-- [ ] **A copy of `config.toml`.** This is **not currently backed up by
-      `turiya` itself** — tracked in
-      [issue #12](https://github.com/masriamir/turiya/issues/12). Until
-      that lands, keep a copy of `~/.config/turiya/config.toml` alongside
-      the password in whatever store holds it. If you don't have one,
-      you'll reconstruct it from `config.example.toml` in step 3 below —
-      you'll need to remember your `sources`, `excludes`, retention
-      settings, and schedule.
+- [ ] **A copy of `config.toml`.** Ordinary `turiya backup` runs include the
+      active config file automatically. Keeping a separate copy alongside
+      the password is still a useful extra safeguard. If you don't have one,
+      restore it from a snapshot with `restic` directly after installing the
+      prerequisites and authenticating the remote; `turiya` cannot run until
+      the config exists. Alternatively, copy `config.example.toml` and
+      reconstruct the values from memory.
 - [ ] **The `[[repo]]` URLs** from that config (e.g.
       `rclone:gdrive:turiya-backups`) — needed even if you're reconstructing
       the config from memory, so you point at the right remotes.
