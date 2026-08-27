@@ -1,4 +1,4 @@
-.PHONY: install dev gates release
+.PHONY: install dev gates release meta-check meta-sync
 
 install:            ## Install `turiya` on PATH (pinned snapshot)
 	uv tool install . --reinstall
@@ -70,3 +70,9 @@ release: gates       ## Tag, push, and publish a GitHub release for the pyprojec
 		git push origin "$$tag"; \
 	fi; \
 	gh release create "$$tag" --title "$$tag" --notes-file "$$notes_file"
+
+meta-check:         ## Verify shared files match their pinned canonical sources (network)
+	uv run python scripts/meta_sync.py check
+
+meta-sync:          ## Rewrite shared files from their pinned sources (bump a ref first)
+	uv run python scripts/meta_sync.py sync

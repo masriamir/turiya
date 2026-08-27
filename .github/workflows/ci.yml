@@ -56,3 +56,8 @@ jobs:
 
       - name: ty check
         run: uv run ty check
+
+  # Shared files must match their pinned canonical sources in
+  # .meta-manifest.toml; run locally with `make meta-check`.
+  meta-check:
+    uses: masriamir/.github/.github/workflows/meta-check.yml@4719d5bfca1fdd2273c13e5c30f87e0340240012 # main

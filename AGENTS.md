@@ -1,4 +1,9 @@
-# CLAUDE.md
+# AGENTS.md
+
+Shared, tool-neutral guidance for any agent working in `turiya`. Claude reads it via the
+`@AGENTS.md` import in `CLAUDE.md`; GitHub Copilot code review reads it directly. Sections
+marked with `meta:` markers are canonical blocks synced from `masriamir/.github` — edit them
+upstream, not here (see `.meta-manifest.toml` and `make meta-check`).
 
 ## Project purpose
 
@@ -31,10 +36,17 @@ dashboard, notifications, integrity automation) import `operations` +
 | `src/turiya/operations/setup.py` | `run(config, *, password=None, program=None)` / `teardown(config)`. Keychain prompt, rclone remote check, restic repo init, launchd plist install/removal, pmset. `default_program()` resolves the launchd `ProgramArguments` to the `uv tool`-installed `turiya` binary (via `uv tool dir --bin`), raising `SchedulingError` if it isn't installed yet — see `Makefile`. |
 | `src/turiya/templates/launchd.plist.tmpl` | launchd plist template, rendered via stdlib `string.Template` — de-hardcoded (item 2), no jinja2 dependency. |
 | `src/turiya/cli.py` | Thin Typer app; maps `backup`/`restore`/`status`/`query`/`setup`/`teardown` subcommands to `operations.*.run`; console entry point `turiya`. |
-| `Makefile` | `install` (`uv tool install . --reinstall`, pins `turiya` on `PATH` — required before `turiya setup`, see `operations/setup.py`), `dev` (`uv sync`), `gates` (mirrors CI), `release` (tags + pushes + publishes a GitHub release for the current `pyproject.toml` version, with notes sliced from the matching `CHANGELOG.md` section). The installed `turiya` and `uv run turiya` are the same entry point via two separate environments (a pinned `uv tool` env vs. the project `.venv`). |
+| `Makefile` | `install` (`uv tool install . --reinstall`, pins `turiya` on `PATH` — required before `turiya setup`, see `operations/setup.py`), `dev` (`uv sync`), `gates` (mirrors CI), `release` (tags + pushes + publishes a GitHub release for the current `pyproject.toml` version, with notes sliced from the matching `CHANGELOG.md` section), `meta-check` (verifies shared files match their pinned `masriamir/.github` sources), `meta-sync` (rewrites them after a deliberate `ref` bump). The installed `turiya` and `uv run turiya` are the same entry point via two separate environments (a pinned `uv tool` env vs. the project `.venv`). |
 | `README.md` | User-facing usage docs. |
 | `RECOVERY.md` | Disaster-recovery runbook: restoring turiya's backups onto a replacement Mac after the original is lost/dead/wiped. |
 | `.github/copilot-instructions.md` | Copilot-facing project instructions — this file's counterpart. |
+| `AGENTS.md` | This file — tool-neutral shared guidance. Repo-authored sections plus four canonical blocks (`language-en-us`, `commit-conventions`, `branch-naming`, `copilot-review-loop`) synced from `masriamir/.github` via `.meta-manifest.toml`. |
+| `CLAUDE.md` | Claude-specific entry point at the repo root; imports this file with `@AGENTS.md`. |
+| `.meta-manifest.toml` | Manifest of shared files/blocks synced from `masriamir/.github`, consumed by `scripts/meta_sync.py`. Bump a `ref` deliberately, then run `make meta-sync`. |
+| `lefthook.yml` | Git hooks configuration, synced from `masriamir/.github`'s Python template. |
+| `.editorconfig` | Editor whitespace/charset/indent defaults, synced from `masriamir/.github` via `.meta-manifest.toml`. |
+| `.github/CODEOWNERS` | Review ownership, synced from `masriamir/.github` via `.meta-manifest.toml`. |
+| `scripts/` | Vendored sync tooling: `meta_sync.py` (checks/applies the shared-file manifest) and `check-conventional-subject.py` / `test-conventional-subject.sh` (commit-subject linting), all synced from `masriamir/.github`. |
 
 The original bash v1.0.0 implementation (shell backup/restore/status/query
 runners, the setup/teardown shell scripts, shared shell helper libraries, the
@@ -48,10 +60,11 @@ from `main` and remains recoverable at the `v1.0.0` git tag.
   ```bash
   uv run pytest
   uv run ruff check .
+  uv run ruff format --check .
   uv run mypy src tests
   uv run ty check
   ```
-  All four must be clean. `ruff` also handles formatting (`uv run ruff format .`).
+  All five must be clean. `uv run ruff format .` fixes formatting issues caught by the check.
 - **Layering rule:** `operations/*` contain the logic and depend on the lower-level modules (`config`, `keychain`, `restic`, `rclone`, `logging`, `scheduling`). `cli.py` is thin and depends only on `operations` + `config` — it must never contain business logic, only argument wiring and error-to-exit-code translation. Anything importable by a future dashboard belongs in `operations` or below, not in `cli.py`.
 - **Config:** all runtime configuration lives in TOML at `~/.config/turiya/config.toml` (template: `config.example.toml`), loaded with stdlib `tomllib` and validated into a pydantic v2 `Config` model (`src/turiya/config.py`). Root-level keys (`sources`, `excludes`) must precede all `[table]`/`[[array]]` headers in the TOML file, or TOML will silently absorb them into the preceding table. Two env var overrides exist for testing, not normal use: `TURIYA_CONFIG` (override which file `config.load` reads) and `RESTIC_PASSWORD` (skip the Keychain lookup if already set).
 - **Errors:** every operation-level failure is a subclass of `TuriyaError` (`src/turiya/errors.py`). `cli.py` catches `TuriyaError`, prints a clean message to stderr, and exits non-zero — never let a raw traceback reach the user for an expected failure mode. restic/rclone failures always surface their real underlying message (never swallowed).
@@ -66,45 +79,7 @@ from `main` and remains recoverable at the `v1.0.0` git tag.
 2. Wire it into `src/turiya/cli.py` as a new `@app.command()`, thin argument mapping only.
 3. Add the file to the file map above and to `README.md`'s CLI reference.
 4. Write unit tests (subprocess mocked) and, if it touches restic, an integration test against a real temp repo fixture.
-5. Run the full gate (`pytest`, `ruff check`, `mypy`, `ty check`) before considering the change done.
-
-## Working a PR (Copilot review loop)
-
-This repo has GitHub Copilot's automatic PR review enabled. The standard way
-to drive a PR to mergeable state, when asked to "address PR comments" or
-"work on PR #N":
-
-1. Fetch feedback from both PR review resources, which are different things:
-   `gh api repos/<owner>/<repo>/pulls/<n>/comments` returns inline code
-   review comments, each anchored to a resolvable GraphQL `reviewThread`;
-   `gh api repos/<owner>/<repo>/pulls/<n>/reviews` returns review objects
-   (approval/state + an optional top-level body) that are **not** threads
-   and have no resolve mechanism.
-2. Fix each comment in code, with tests where applicable, and run the full
-   gate before committing.
-3. Commit. Before pushing, check whether the *PR branch's own remote tip*
-   has moved (e.g. someone pushed to it directly, or merged `main` into it
-   via the GitHub UI):
-   `git fetch origin <branch> -q && git log --oneline HEAD..origin/<branch>`.
-   If it has moved and your local commit isn't pushed yet, `git pull --rebase`
-   cleanly replays it on top — no force-push needed. This is different from
-   rebasing your commits onto an updated `main`: that rewrites history you
-   may have already pushed, which needs `git push --force-with-lease`.
-   Force-pushing rewrites shared history and can't be cleanly undone, so
-   don't do it without asking the user first, even if it would resolve a
-   push conflict.
-4. Reply to each inline comment thread explaining the fix (commit sha + what
-   changed): `gh api repos/<owner>/<repo>/pulls/<n>/comments/<id>/replies -f body=...`.
-   A review's top-level body isn't a thread — if it needs a response, post a
-   normal PR comment instead (`gh pr comment <n> --body ...`, or
-   `gh api repos/<owner>/<repo>/issues/<n>/comments`).
-5. Resolve each inline comment thread with the GraphQL `resolveReviewThread`
-   mutation (the thread's node id comes from a `reviewThreads` GraphQL
-   query, not the REST comment id). Review bodies have nothing to resolve.
-6. Re-request a Copilot review: `gh pr edit <n> --add-reviewer copilot-pull-request-reviewer`.
-7. Wait for the new review. If it has new comments, repeat from step 2.
-8. When a re-review comes back clean, stop and hand back for manual review.
-   Never merge the PR yourself — that decision is always the user's.
+5. Run the full gate (`pytest`, `ruff check`, `ruff format --check`, `mypy`, `ty check`) before considering the change done.
 
 ## Logging schema
 
@@ -137,3 +112,44 @@ This schema and file layout are **preserved exactly** from v1.0.0 (byte-compatib
 - The retention/forget logic in `operations/backup.py` — it's intentionally simple and matches the documented retention policy; don't add extra forget flags without updating `config.example.toml` and `README.md` together.
 - Don't hardcode a path, repo name, or credential anywhere — it belongs in `config.toml`.
 - Don't add a parallel logging mechanism — always go through `StructuredLogger` in `src/turiya/logging.py`.
+
+## Language
+
+<!-- >>> meta:language-en-us -->
+- **American English spelling everywhere** — not only documentation: identifiers, code comments, doc comments, CLI and other user-visible output, commit messages and PR text. Take the American form of every `-ise`/`-ize`, `-our`/`-or`, `-re`/`-er` and `-ae`/`-e` pair: `initialize`, `honor`, `center`, `artifact`, `color`, `behavior`, `analyze`.
+- **Third-party vocabulary keeps its own spelling.** GitHub Actions' job-status literal is `cancelled`; a status value, API field or dependency identifier is quoted, never corrected. The rule governs our words, not other people's.
+- **Applying or flagging this is not a mechanical find-and-replace.** Skip backticked code spans, and match the *pattern* (`-ise`/`-ize`, and the others above) rather than a literal wrong word — the American forms listed above are the intended spellings, not violations. Because a rule like this must name the very spellings it forbids, a blind sweep rewrites its own counter-examples: a bullet meaning "write `color`, not the `-our` form" gets flattened to "write `color`, not `color`", which forbids nothing.
+- **Check spelling as you write, not only when reviewing** — text copied verbatim from upstream is the usual source of slips.
+<!-- <<< meta:language-en-us -->
+
+## Commit conventions
+
+<!-- >>> meta:commit-conventions -->
+Follow [Conventional Commits](https://www.conventionalcommits.org/): `feat` (new functionality), `fix` (bug fix), `docs` (documentation only), `test` (test-only), `refactor` (no behavior change), `chore` (build/tooling), `ci` (CI workflows). Scope is encouraged — `feat(map):`, `fix(cli):`.
+
+**Mark breaking changes** with `!` (`feat(map)!: remove RejectLump`) or a `BREAKING CHANGE:` footer. Release automation derives the version bump from these annotations, so an unmarked breaking change proposes a semver-violating patch release.
+
+**The PR title is the changelog entry and the version bump.** PRs squash-merge to a single commit whose subject is the PR title and whose body is blank — every branch commit subject is discarded. So the PR title alone selects the changelog section and drives the derived bump. Write it as a real Conventional Commit describing the shipped outcome; never `gh pr create --fill` (it takes the title from the branch name). Title a mixed PR by its highest-impact change (`!` > `feat` > `fix` > everything else), or split it into one PR per type when both halves each earn a changelog line. Never hand-force a version to compensate for a title.
+<!-- <<< meta:commit-conventions -->
+
+## Git branching workflow
+
+<!-- >>> meta:branch-naming -->
+Branch from `main` after a `git pull`. Name every branch `<type>/<slug>` where `type` is one of `feature`, `bugfix`, `hotfix`, `docs`, or `chore`. The slug is descriptive and always required — a bare number such as `feature/42` is rejected — and is prefixed with the issue number when a tracking issue exists (`feature/42-mmap-support`). The number is optional in the pre-push hook but expected for the issue-driven `feature`/`bugfix`/`hotfix` types; `docs`/`chore` branches commonly omit it.
+
+**Release branches are not used.** Release automation handles version bumps, changelog, and tags from the Conventional Commits on `main`; merge the release PR to ship.
+<!-- <<< meta:branch-naming -->
+
+## Copilot review
+
+<!-- >>> meta:copilot-review-loop -->
+PRs are reviewed automatically by `copilot-pull-request-reviewer`. Work through its comments — review threads **and** the suppressed comments in the review body — across as many rounds as needed. Verify each finding against the actual code before acting; bots are sometimes wrong or working from a stale diff.
+
+A PR is ready for human review only when **all** of these hold:
+
+- every automated review thread is resolved,
+- every required CI check passes (`gh pr checks`), and
+- the codecov comment reports no uncovered changed lines (or each remaining miss is consciously justified).
+
+Resolved threads over a red required check — or unaddressed missing coverage — do **not** make a PR ready. Whether a fresh review is auto-requested on push or must be requested by hand is a per-repo ruleset detail (`review_on_push`); check the ruleset when a request seems stuck rather than assuming.
+<!-- <<< meta:copilot-review-loop -->

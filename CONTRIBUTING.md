@@ -2,7 +2,7 @@
 
 Thanks for your interest. turiya is a library-first Python 3.14 package; the
 architecture and conventions are documented in
-[`CLAUDE.md`](.claude/CLAUDE.md) — read it before making changes.
+[`AGENTS.md`](AGENTS.md) — read it before making changes.
 
 ## Development setup
 
@@ -24,9 +24,17 @@ command to reflect your local changes, run `make install` to refresh the
 pinned install — `uv run turiya ...` always reflects source edits immediately
 and needs no extra step.
 
+This repo also ships git hooks via [lefthook](https://lefthook.dev/). lefthook
+is a standalone binary, not a Python package — install it separately (e.g.
+`brew install lefthook`; do not add it to `pyproject.toml`'s dev group), then
+run `lefthook install` once after cloning to enable the hooks. They mirror the
+gates locally: `pre-commit` runs the format/lint/type checks, `commit-msg`
+validates the subject against Conventional Commits, and `pre-push` validates
+the branch name against the naming rule in `AGENTS.md`.
+
 ## Required gates
 
-All four must be clean before a PR can merge (CI enforces them as the `gates`
+All five must be clean before a PR can merge (CI enforces them as the `gates`
 check on every pull request):
 
 ```bash
@@ -54,10 +62,10 @@ double-check the version and CHANGELOG entry before running it.
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org/)
   (e.g. `feat:`, `fix:`, `fix(cli):`, `feat!:` for breaking changes).
 - Keep the CLI thin: business logic lives in `operations/*` and the layers
-  below it, never in `cli.py` (see the layering rule in `CLAUDE.md`).
+  below it, never in `cli.py` (see the layering rule in `AGENTS.md`).
 - Don't change the documented public API, the JSONL logging schema, or
   hardcode paths/repos/credentials — these are called out under
-  "What not to touch" in `CLAUDE.md`.
+  "What not to touch" in `AGENTS.md`.
 - Add tests: unit tests with subprocess mocked; an integration test against a
   real temp restic repo if the change touches restic.
 
