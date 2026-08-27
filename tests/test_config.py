@@ -27,13 +27,15 @@ def test_paths_are_expanded() -> None:
     cfg = config.load(FIXTURE)
     assert cfg.sources[0] == Path.home() / "Documents"
     assert cfg.logging.dir == Path.home() / ".local/log/turiya"
-    assert cfg.config_path == FIXTURE
+    assert cfg.config_path == FIXTURE.resolve()
 
 
 def test_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("TURIYA_CONFIG", str(FIXTURE))
+    monkeypatch.chdir(FIXTURE.parent)
+    monkeypatch.setenv("TURIYA_CONFIG", FIXTURE.name)
     cfg = config.load()
     assert cfg.identity.label == "com.example.turiya"
+    assert cfg.config_path == FIXTURE.resolve()
 
 
 def test_missing_file_raises_config_error(tmp_path: Path) -> None:

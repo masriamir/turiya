@@ -81,7 +81,7 @@ class Config(BaseModel):
     @property
     def config_path(self) -> Path:
         """Return the file this configuration was loaded from."""
-        return self._config_path or resolve_config_path()
+        return (self._config_path or resolve_config_path()).resolve()
 
 
 def resolve_config_path(explicit: Path | None = None) -> Path:
@@ -94,7 +94,7 @@ def resolve_config_path(explicit: Path | None = None) -> Path:
 
 
 def load(path: Path | None = None) -> Config:
-    resolved = resolve_config_path(path)
+    resolved = resolve_config_path(path).resolve()
     if not resolved.is_file():
         raise ConfigError(f"Config file not found at {resolved}")
     try:

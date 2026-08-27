@@ -12,8 +12,10 @@ a **replacement** Mac that needs the backed-up files restored onto it.
 - [ ] **A copy of `config.toml`.** Ordinary `turiya backup` runs include the
       active config file automatically. Keeping a separate copy alongside
       the password is still a useful extra safeguard. If you don't have one,
-      restore it from a backup snapshot before continuing; otherwise, copy
-      `config.example.toml` and reconstruct the values from memory.
+      restore it from a snapshot with `restic` directly after installing the
+      prerequisites and authenticating the remote; `turiya` cannot run until
+      the config exists. Alternatively, copy `config.example.toml` and
+      reconstruct the values from memory.
 - [ ] **The `[[repo]]` URLs** from that config (e.g.
       `rclone:gdrive:turiya-backups`) — needed even if you're reconstructing
       the config from memory, so you point at the right remotes.
